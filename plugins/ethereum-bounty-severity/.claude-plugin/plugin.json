@@ -1,0 +1,8 @@
+{
+  "name": "ethereum-bounty-severity",
+  "version": "0.1.0",
+  "description": "Ethereum bug bounty severity rubric encoded as a callable skill.",
+  "author": {
+    "name": "Bhargava Shastry"
+  }
+}
