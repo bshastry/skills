@@ -135,6 +135,15 @@
       "source": "./plugins/dwarf-expert"
     },
     {
+      "name": "el-gas-amp-audit",
+      "description": "Audit Ethereum execution-layer clients (geth, Nethermind, Besu) for gas-to-resource amplification DoS bugs under EIP-7825 and current mainnet block gas limits",
+      "version": "0.1.0",
+      "author": {
+        "name": "Bhargava Shastry"
+      },
+      "source": "./plugins/el-gas-amp-audit"
+    },
+    {
       "name": "entry-point-analyzer",
       "version": "1.0.0",
       "description": "Analyzes smart contract codebases to identify state-changing entry points for security auditing. Detects externally callable functions that modify state, categorizes them by access level, and generates structured audit reports.",

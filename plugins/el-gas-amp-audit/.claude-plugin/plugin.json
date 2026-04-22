@@ -1,0 +1,8 @@
+{
+  "name": "el-gas-amp-audit",
+  "version": "0.1.0",
+  "description": "Audit Ethereum execution-layer clients (geth, Nethermind, Besu) for gas-to-resource amplification DoS bugs under EIP-7825 and current mainnet block gas limits",
+  "author": {
+    "name": "Bhargava Shastry"
+  }
+}
