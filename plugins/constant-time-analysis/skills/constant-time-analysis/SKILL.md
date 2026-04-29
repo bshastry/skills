@@ -212,6 +212,16 @@ For each flagged violation, ask: **Does this operation's input depend on secret 
 - **Lucky Thirteen (2013)**: Timing differences in CBC padding validation enabled plaintext recovery
 - **RSA Timing Attacks**: Early implementations leaked private key bits through division timing
 
+## Validation: Go Crypto Side-Channel Benchmark
+
+The Go support is gated by a benchmark of real-world CVE patterns under `ct_analyzer/tests/go_benchmark/`. It must catch every known-bad pattern (KyberSlash, Lucky Thirteen, Bleichenbacher, square-and-multiply leak, FP-divide-on-secret) on x86_64 and arm64, and produce zero ERROR-level findings on the standard hardening patterns (`crypto/subtle`, Barrett reduction, bitmask selection, Montgomery ladder).
+
+```bash
+python3 ct_analyzer/tests/go_benchmark/run_benchmark.py
+```
+
+See `ct_analyzer/tests/go_benchmark/README.md` for the full pattern list and how to add new ones.
+
 ## References
 
 - [Cryptocoding Guidelines](https://github.com/veorq/cryptocoding) - Defensive coding for crypto

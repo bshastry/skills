@@ -1,0 +1,150 @@
+{
+  "_comment": "Golden expectations for the Go crypto side-channel benchmark. Each entry maps a source file (relative to the benchmark root) to a list of architectures we test, and for each architecture the expected violation classes. Architectures we cannot test on the current host are skipped. The benchmark passes if and only if EVERY 'must_detect' fact is observed and NO 'must_not_detect' facts appear.",
+
+  "vulnerable/kyberslash_division.go": {
+    "kind": "vulnerable",
+    "description": "KyberSlash division on secret coefficient (CVE class). Note: x86_64 IDIV produces quotient and remainder atomically, so a `q=x/y; r=x%y` pair compiles to a single IDIV — the analyzer reports it once. ARM64 emits SDIV+REM as separate instructions.",
+    "x86_64": {
+      "must_detect": [
+        {"function": "CompressKyberSlash", "mnemonic_class": "INTEGER_DIVIDE"},
+        {"function": "DecompressKyberSlashAlt", "mnemonic_class": "INTEGER_DIVIDE"}
+      ]
+    },
+    "arm64": {
+      "must_detect": [
+        {"function": "CompressKyberSlash", "mnemonic_class": "INTEGER_DIVIDE"},
+        {"function": "CompressKyberSlash", "mnemonic_class": "INTEGER_MODULO"},
+        {"function": "DecompressKyberSlashAlt", "mnemonic_class": "INTEGER_DIVIDE"}
+      ]
+    }
+  },
+
+  "vulnerable/mldsa_decompose.go": {
+    "kind": "vulnerable",
+    "description": "ML-DSA decompose with hardware divide on secret.",
+    "x86_64": {
+      "must_detect": [
+        {"function": "DecomposeVulnerable", "mnemonic_class": "INTEGER_DIVIDE"},
+        {"function": "UseHintVulnerable", "mnemonic_class": "INTEGER_DIVIDE"}
+      ]
+    },
+    "arm64": {
+      "must_detect": [
+        {"function": "DecomposeVulnerable", "mnemonic_class": "INTEGER_DIVIDE"},
+        {"function": "UseHintVulnerable", "mnemonic_class": "INTEGER_DIVIDE"}
+      ]
+    }
+  },
+
+  "vulnerable/timing_compare.go": {
+    "kind": "vulnerable",
+    "description": "Variable-time MAC compare. Detected only with --warnings because the violation manifests as a conditional branch on secret data.",
+    "x86_64": {
+      "must_detect_with_warnings": [
+        {"function": "EqualVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"},
+        {"function": "VerifyMACVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"}
+      ]
+    },
+    "arm64": {
+      "must_detect_with_warnings": [
+        {"function": "EqualVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"},
+        {"function": "VerifyMACVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"}
+      ]
+    }
+  },
+
+  "vulnerable/montgomery_branch.go": {
+    "kind": "vulnerable",
+    "description": "Square-and-multiply with secret-bit branch.",
+    "x86_64": {
+      "must_detect_with_warnings": [
+        {"function": "ScalarMulVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"}
+      ]
+    },
+    "arm64": {
+      "must_detect_with_warnings": [
+        {"function": "ScalarMulVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"}
+      ]
+    }
+  },
+
+  "vulnerable/rsa_decrypt_branch.go": {
+    "kind": "vulnerable",
+    "description": "PKCS#1 v1.5 padding oracle: branches reveal failure location.",
+    "x86_64": {
+      "must_detect_with_warnings": [
+        {"function": "CheckPKCS1PadVulnerable", "mnemonic_class": "CONDITIONAL_BRANCH"}
+      ]
+    }
+  },
+
+  "vulnerable/fp_division.go": {
+    "kind": "vulnerable",
+    "description": "Floating-point divide on secret operand.",
+    "x86_64": {
+      "must_detect": [
+        {"function": "ReduceWithFloat", "mnemonic_class": "FP_DIVIDE"}
+      ]
+    },
+    "arm64": {
+      "must_detect": [
+        {"function": "ReduceWithFloat", "mnemonic_class": "FP_DIVIDE"}
+      ]
+    }
+  },
+
+  "safe/constant_time_compare.go": {
+    "kind": "safe",
+    "description": "subtle.ConstantTimeCompare wrapper. Must NOT produce ERROR-level findings.",
+    "x86_64": {
+      "must_not_detect_errors": ["EqualSafe"]
+    },
+    "arm64": {
+      "must_not_detect_errors": ["EqualSafe"]
+    }
+  },
+
+  "safe/barrett_reduction.go": {
+    "kind": "safe",
+    "description": "Barrett-reduction replacement for KyberSlash divide. Must NOT produce DIV.",
+    "x86_64": {
+      "must_not_detect_errors": ["CompressBarrett"]
+    },
+    "arm64": {
+      "must_not_detect_errors": ["CompressBarrett"]
+    }
+  },
+
+  "safe/bitmask_select.go": {
+    "kind": "safe",
+    "description": "Bit-mask conditional move. Must NOT produce ERROR-level findings; warnings on subtle.ConstantTimeEq calls are tolerated.",
+    "x86_64": {
+      "must_not_detect_errors": ["MaskSelectSafe"]
+    },
+    "arm64": {
+      "must_not_detect_errors": ["MaskSelectSafe"]
+    }
+  },
+
+  "safe/montgomery_ladder.go": {
+    "kind": "safe",
+    "description": "Constant-time Montgomery ladder. Branches on loop bounds (i--) are public, not on secret bits, but ARE flagged as warnings -- the analyzer cannot tell the difference. We only require ZERO ERRORs.",
+    "x86_64": {
+      "must_not_detect_errors": ["ScalarMulSafe", "cswap"]
+    },
+    "arm64": {
+      "must_not_detect_errors": ["ScalarMulSafe", "cswap"]
+    }
+  },
+
+  "safe/public_data_division.go": {
+    "kind": "expected_false_positive",
+    "description": "Division on a public length. The analyzer correctly flags it as a syntactic divide; the user must triage.",
+    "x86_64": {
+      "must_detect": [
+        {"function": "BlocksRequired", "mnemonic_class": "INTEGER_DIVIDE"}
+      ],
+      "expected_false_positive": true
+    }
+  }
+}

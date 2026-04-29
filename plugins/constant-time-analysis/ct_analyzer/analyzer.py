@@ -150,6 +150,21 @@ DANGEROUS_INSTRUCTIONS = {
             "jnp": "conditional branch may leak timing information if condition depends on secret data",
             "jc": "conditional branch may leak timing information if condition depends on secret data",
             "jnc": "conditional branch may leak timing information if condition depends on secret data",
+            # Go's Plan 9 amd64 assembler uses different conditional-jump
+            # mnemonics; these alias to the AT&T forms above.
+            "jeq": "conditional branch may leak timing information if condition depends on secret data",
+            "jlt": "conditional branch may leak timing information if condition depends on secret data",
+            "jgt": "conditional branch may leak timing information if condition depends on secret data",
+            "jhi": "conditional branch may leak timing information if condition depends on secret data",
+            "jls": "conditional branch may leak timing information if condition depends on secret data",
+            "jmi": "conditional branch may leak timing information if condition depends on secret data",
+            "jpl": "conditional branch may leak timing information if condition depends on secret data",
+            "jcs": "conditional branch may leak timing information if condition depends on secret data",
+            "jcc": "conditional branch may leak timing information if condition depends on secret data",
+            "jos": "conditional branch may leak timing information if condition depends on secret data",
+            "joc": "conditional branch may leak timing information if condition depends on secret data",
+            "jps": "conditional branch may leak timing information if condition depends on secret data",
+            "jpc": "conditional branch may leak timing information if condition depends on secret data",
         },
     },
     # ARM64 / AArch64
@@ -159,10 +174,23 @@ DANGEROUS_INSTRUCTIONS = {
             # Note: Even with DIT (Data Independent Timing) enabled, division is NOT constant-time
             "udiv": "UDIV has early termination optimization; execution time depends on operand values",
             "sdiv": "SDIV has early termination optimization; execution time depends on operand values",
+            # Go's ARM64 assembler uses a 'W' suffix for 32-bit forms, and
+            # spells modulo as REM*. These are the same hardware operations
+            # and have the same variable-time behavior.
+            "udivw": "UDIV has early termination optimization; execution time depends on operand values",
+            "sdivw": "SDIV has early termination optimization; execution time depends on operand values",
+            "remw": "REM/MOD via SDIV+MSUB; execution time depends on operand values",
+            "uremw": "UREM/UMOD via UDIV+MSUB; execution time depends on operand values",
+            "rem": "REM/MOD via SDIV+MSUB; execution time depends on operand values",
+            "urem": "UREM/UMOD via UDIV+MSUB; execution time depends on operand values",
             # Floating-point division
             "fdiv": "FDIV (FP division) has variable latency based on operand values",
+            "fdivd": "FDIV (FP double division) has variable latency based on operand values",
+            "fdivs": "FDIV (FP single division) has variable latency based on operand values",
             # Square root
             "fsqrt": "FSQRT has variable latency based on operand values",
+            "fsqrtd": "FSQRT (double) has variable latency based on operand values",
+            "fsqrts": "FSQRT (single) has variable latency based on operand values",
         },
         "warnings": {
             # Conditional branches
@@ -210,6 +238,13 @@ DANGEROUS_INSTRUCTIONS = {
             "vdiv.f64": "VDIV.F64 has variable latency",
             "vsqrt.f32": "VSQRT.F32 has variable latency",
             "vsqrt.f64": "VSQRT.F64 has variable latency",
+            # Go's ARM assembler uses these mnemonics. Older ARMv5/v6 has no
+            # hardware divide; Go emits CALL runtime.udiv / runtime._udiv etc.
+            # Those calls are flagged separately in the parser.
+            "divf": "DIVF (FP single division) has variable latency",
+            "divd": "DIVD (FP double division) has variable latency",
+            "sqrtf": "SQRTF has variable latency",
+            "sqrtd": "SQRTD has variable latency",
         },
         "warnings": {
             "beq": "conditional branch may leak timing information if condition depends on secret data",
@@ -243,6 +278,11 @@ DANGEROUS_INSTRUCTIONS = {
             "fdiv.d": "FDIV.D has variable latency",
             "fsqrt.s": "FSQRT.S has variable latency",
             "fsqrt.d": "FSQRT.D has variable latency",
+            # Go's RISC-V assembler omits the dot in FP mnemonics
+            "fdivs": "FDIV.S has variable latency",
+            "fdivd": "FDIV.D has variable latency",
+            "fsqrts": "FSQRT.S has variable latency",
+            "fsqrtd": "FSQRT.D has variable latency",
         },
         "warnings": {
             "beq": "conditional branch may leak timing information if condition depends on secret data",
@@ -295,6 +335,19 @@ DANGEROUS_INSTRUCTIONS = {
             "ddbr": "DDBR (divide FP register) has variable latency",
             "sqdb": "SQDB (square root FP) has variable latency",
             "sqdbr": "SQDBR (square root FP register) has variable latency",
+            # Go's s390x assembler uses these mnemonics
+            "divw": "DIVW (32-bit divide) has variable-time execution",
+            "divwu": "DIVWU (32-bit unsigned divide) has variable-time execution",
+            "divd": "DIVD (64-bit divide) has variable-time execution",
+            "divdu": "DIVDU (64-bit unsigned divide) has variable-time execution",
+            "modw": "MODW (32-bit modulo) has variable-time execution",
+            "modwu": "MODWU (32-bit unsigned modulo) has variable-time execution",
+            "modd": "MODD (64-bit modulo) has variable-time execution",
+            "moddu": "MODDU (64-bit unsigned modulo) has variable-time execution",
+            "fdiv": "FDIV (FP division) has variable latency",
+            "fdivs": "FDIVS (FP single division) has variable latency",
+            "fsqrt": "FSQRT has variable latency",
+            "fsqrts": "FSQRTS has variable latency",
         },
         "warnings": {
             "je": "conditional branch may leak timing information if condition depends on secret data",
@@ -560,7 +613,24 @@ class ClangCompiler(Compiler):
 
 
 class GoCompiler(Compiler):
-    """Go compiler interface."""
+    """Go compiler interface.
+
+    Strategy: emit assembly via ``go build -gcflags=-S`` from the source file's
+    package directory. This is significantly better than ``go build`` followed
+    by ``go tool objdump`` because:
+
+    1. It emits assembly for every function in the package, including
+       non-exported library functions that the linker would dead-code-eliminate
+       in a non-main package. The old objdump path silently reported "PASSED"
+       on real crypto libraries because their functions were stripped.
+    2. It does not include the entire Go runtime (gc, scheduler, maps), which
+       previously produced 60+ false positives that drowned out user code.
+    3. It resolves imports from the surrounding go.mod, so files importing
+       ``crypto/subtle`` and other stdlib packages work correctly.
+    4. It is faster (single compile pass, no link, no disassembly).
+
+    For files with no go.mod and no imports we fall back to ``go tool compile -S``.
+    """
 
     ARCH_MAP = {
         "x86_64": "amd64",
@@ -586,6 +656,19 @@ class GoCompiler(Compiler):
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
+    @staticmethod
+    def _find_module_root(start: Path) -> Path | None:
+        """Walk up from start looking for go.mod. Returns the directory or None."""
+        cur = start.resolve()
+        if cur.is_file():
+            cur = cur.parent
+        while True:
+            if (cur / "go.mod").exists():
+                return cur
+            if cur.parent == cur:
+                return None
+            cur = cur.parent
+
     def compile_to_assembly(
         self,
         source_file: str,
@@ -597,47 +680,103 @@ class GoCompiler(Compiler):
         arch = normalize_arch(arch)
         goarch = self.ARCH_MAP.get(arch, arch)
 
-        # For Go, we need to build a binary and then disassemble it
-        with tempfile.TemporaryDirectory() as tmpdir:
-            binary_path = os.path.join(tmpdir, "binary")
+        env = os.environ.copy()
+        env["GOOS"] = env.get("GOOS", "linux")
+        env["GOARCH"] = goarch
+        env["CGO_ENABLED"] = "0"
 
-            env = os.environ.copy()
-            env["GOOS"] = "linux"
-            env["GOARCH"] = goarch
-            env["CGO_ENABLED"] = "0"
+        # -N disables optimizations, -l disables inlining (important for analysis).
+        # -S emits human-readable assembly to stderr.
+        gcflag_parts = ["-S"]
+        if optimization == "O0":
+            gcflag_parts.extend(["-N", "-l"])
+        gcflags = " ".join(gcflag_parts)
 
-            # Build command - use gcflags to control optimization
-            gcflags = ""
-            if optimization == "O0":
-                gcflags = "-N -l"  # Disable optimizations and inlining
+        src_path = Path(source_file).resolve()
+        pkg_dir = src_path.parent
+        module_root = self._find_module_root(src_path)
 
-            cmd = [
-                self.path,
-                "build",
-                "-o",
-                binary_path,
-            ]
-            if gcflags:
-                cmd.extend(["-gcflags", gcflags])
-            cmd.append(source_file)
-
+        if module_root is not None:
+            # Build the package this file lives in. Using the package import
+            # path would also work, but `.` (relative to cwd) is simplest and
+            # still produces assembly for all files in the package. We compile
+            # the whole package because Go semantics require it: the file may
+            # reference other files in the same package.
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, env=env)
-                if result.returncode != 0:
-                    return False, result.stderr
-
-                # Now disassemble
-                disasm_cmd = [self.path, "tool", "objdump", binary_path]
-                result = subprocess.run(disasm_cmd, capture_output=True, text=True)
-                if result.returncode != 0:
-                    return False, result.stderr
-
-                with open(output_file, "w") as f:
-                    f.write(result.stdout)
-
-                return True, ""
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    bin_path = os.path.join(tmpdir, "discard")
+                    cmd = [
+                        self.path,
+                        "build",
+                        "-o",
+                        bin_path,
+                        "-gcflags",
+                        gcflags,
+                        *(extra_flags or []),
+                        ".",
+                    ]
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        cwd=str(pkg_dir),
+                    )
             except FileNotFoundError:
                 return False, f"Go not found: {self.path}"
+
+            # `go build -gcflags=-S` writes assembly to stderr (the gc
+            # compiler's diagnostic stream). `go build` for a non-main
+            # package may exit non-zero with "no Go files" or similar;
+            # -S still emits to stderr if compile succeeded. Heuristic:
+            # if stderr contains TEXT directives, the compile succeeded
+            # enough for analysis.
+            asm_text = result.stderr
+            if "TEXT\t" not in asm_text and "STEXT" not in asm_text:
+                if result.returncode != 0:
+                    return False, asm_text or result.stdout
+                return False, "go build produced no assembly (empty package?)"
+        else:
+            # No go.mod: fall back to `go tool compile -S`. This works for
+            # self-contained files but cannot resolve stdlib imports.
+            cmd = [self.path, "tool", "compile", "-S"]
+            if optimization == "O0":
+                cmd.extend(["-N", "-l"])
+            cmd.extend(extra_flags or [])
+            cmd.append(str(src_path))
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        cwd=tmpdir,  # avoid littering the source dir with .o
+                    )
+            except FileNotFoundError:
+                return False, f"Go not found: {self.path}"
+
+            # `go tool compile -S` writes the assembly listing to stdout
+            # (unlike `go build`, which routes -S through stderr).
+            asm_text = result.stdout
+            if "TEXT\t" not in asm_text and "STEXT" not in asm_text:
+                msg = result.stderr or result.stdout
+                if "could not import" in msg or "file not found" in msg:
+                    msg += (
+                        "\n\nHint: this file imports a package but is not part "
+                        "of a Go module. Place it under a directory containing "
+                        "go.mod (run `go mod init <name>`) and re-run."
+                    )
+                return False, msg
+
+        # Tag the assembly so the parser knows this came from `go -S` (which
+        # has a distinct line format) vs. objdump or gcc/clang assembly.
+        with open(output_file, "w") as f:
+            f.write("# ct_analyzer:format=go-gcflags-S\n")
+            f.write(f"# ct_analyzer:source={src_path}\n")
+            f.write(asm_text)
+
+        return True, ""
 
 
 class RustCompiler(Compiler):
@@ -780,12 +919,71 @@ def get_compiler(name: str, language: str) -> Compiler:
         return ClangCompiler()
 
 
+# Go variable-time runtime helpers. On platforms without hardware divide
+# (notably ARMv5/v6 and some pre-Go-1.23 386 paths), Go inserts CALLs to these
+# software routines. They operate by bit-by-bit subtraction/shift, so their
+# execution time depends on the magnitude of the operands. They are exactly
+# as dangerous as a hardware divide for constant-time purposes.
+GO_VARTIME_RUNTIME_CALLS = {
+    "runtime.udiv": "CALL to runtime.udiv (software unsigned divide); execution time depends on operand magnitudes",
+    "runtime._udiv": "CALL to runtime._udiv (software unsigned divide); execution time depends on operand magnitudes",
+    "runtime.uidivmod": "CALL to runtime.uidivmod (software unsigned divmod); execution time depends on operand magnitudes",
+    "runtime._uidiv": "CALL to runtime._uidiv (software unsigned divide); execution time depends on operand magnitudes",
+    "runtime._uidivmod": "CALL to runtime._uidivmod (software unsigned divmod); execution time depends on operand magnitudes",
+    "runtime._sidiv": "CALL to runtime._sidiv (software signed divide); execution time depends on operand magnitudes",
+    "runtime._sidivmod": "CALL to runtime._sidivmod (software signed divmod); execution time depends on operand magnitudes",
+}
+
+# Go standard library packages whose internals we do NOT want to flag when
+# building user code with `go build -gcflags=-S`. The current go-build path
+# already restricts compilation to the user's package, so this is mostly
+# defensive in case someone passes an objdump-style binary.
+GO_STDLIB_FUNCTION_PREFIXES = (
+    "runtime.",
+    "internal/",
+    "sync.",
+    "sync/atomic.",
+    "reflect.",
+    "syscall.",
+    "os.",
+    "io.",
+    "bytes.",
+    "strings.",
+    "strconv.",
+    "fmt.",
+    "errors.",
+    "math.",
+    "math/bits.",
+    "math/rand.",
+    "sort.",
+    "encoding/",
+    "unicode.",
+    "unicode/utf8.",
+    "type:.",
+    "go:.",
+    "type..",
+    "go..",
+    "gclocals",
+)
+
+
 class AssemblyParser:
     """Parser for assembly output from various compilers."""
 
-    def __init__(self, arch: str, compiler: str):
+    def __init__(
+        self,
+        arch: str,
+        compiler: str,
+        source_file: str | None = None,
+        include_runtime: bool = False,
+    ):
         self.arch = normalize_arch(arch)
         self.compiler = compiler
+        # When set, restrict violations to functions defined in this source
+        # file (matched by the file path embedded in Go's -S line tuples).
+        self.restrict_to_source = source_file
+        # When False (default), drop violations from Go stdlib / runtime code.
+        self.include_runtime = include_runtime
 
         # Get dangerous instructions for this architecture
         if self.arch not in DANGEROUS_INSTRUCTIONS:
@@ -802,6 +1000,151 @@ class AssemblyParser:
             self.errors = arch_instructions.get("errors", {})
             self.warnings = arch_instructions.get("warnings", {})
 
+    @staticmethod
+    def _is_stdlib_function(name: str) -> bool:
+        """True if this looks like a Go stdlib/runtime symbol."""
+        return any(name.startswith(p) for p in GO_STDLIB_FUNCTION_PREFIXES)
+
+    def _drop_violation(self, func: str, file_path: str | None) -> bool:
+        """Decide whether to suppress a violation for noise reasons.
+
+        Suppression rules:
+        * Stdlib/runtime symbols are dropped unless ``include_runtime`` is set.
+        * If a source file restriction is active (Go's -S path), drop
+          violations whose ``(file:line)`` tuple points at a different file —
+          this filters out anything dragged in via inlining from other
+          packages.
+        """
+        if not self.include_runtime and self._is_stdlib_function(func):
+            return True
+        if self.restrict_to_source and file_path:
+            try:
+                if Path(file_path).resolve() != Path(self.restrict_to_source).resolve():
+                    return True
+            except OSError:
+                # If we can't resolve, fall through and keep the violation —
+                # better a false positive than a silent miss on crypto code.
+                pass
+        return False
+
+    # -- Go `-S` format helpers ------------------------------------------------
+    #
+    # The `go build -gcflags=-S` and `go tool compile -S` formats differ from
+    # gcc/clang/objdump output. A function header looks like:
+    #
+    #     pkgpath.FuncName STEXT nosplit size=38 args=0x8 locals=0x8 ...
+    #
+    # and instruction lines look like:
+    #
+    #     \t0x0018 00024 (/abs/path/file.go:8)\tIDIVL\tBX
+    #
+    # The leading address+offset pair is constant; the parenthesised tuple is
+    # the source location, and the mnemonic always follows the closing paren.
+    # We special-case this format so we can extract reliable file:line info
+    # for filtering and reporting.
+    GO_INSTR_RE = re.compile(
+        r"^\s*0x[0-9a-fA-F]+\s+\d+\s+\(([^)]+):(\d+)\)\s+([A-Za-z][\w.]*)\b(.*)$"
+    )
+    # A function header line like:
+    #     pkgpath.FuncName STEXT nosplit size=38 args=0x8 ...
+    # The package path may include slashes (e.g. "example.com/foo/bar.Func")
+    # and the function name may contain dots (method receivers, lambdas).
+    # We require at least one dot in the symbol so we don't grab every random
+    # token that precedes a TEXT-like word.
+    GO_FUNC_HEADER_RE = re.compile(
+        r"^([\w./<>$\-]*\.[\w<>$]+)\s+S(?:NOPT)?TEXT\b"
+    )
+    GO_TEXT_DIRECTIVE_RE = re.compile(
+        r"^\s*0x[0-9a-fA-F]+\s+\d+\s+\([^)]+\)\s+TEXT\s+([\w./<>$\-]*\.[\w<>$]+)\s*\(SB\)"
+    )
+
+    def _parse_go_format(
+        self, assembly_text: str, include_warnings: bool
+    ) -> tuple[list[dict], list[Violation]]:
+        functions: list[dict] = []
+        violations: list[Violation] = []
+        current_function: str | None = None
+        instruction_count = 0
+
+        for line in assembly_text.split("\n"):
+            # Function header line
+            header = self.GO_FUNC_HEADER_RE.match(line)
+            if header:
+                if current_function is not None:
+                    functions.append(
+                        {"name": current_function, "instructions": instruction_count}
+                    )
+                current_function = header.group(1)
+                instruction_count = 0
+                continue
+
+            instr = self.GO_INSTR_RE.match(line)
+            if not instr:
+                continue
+            file_path = instr.group(1)
+            line_no = int(instr.group(2))
+            mnemonic_raw = instr.group(3)
+            operands = instr.group(4).strip()
+            mnemonic = mnemonic_raw.lower()
+
+            # Skip pseudo-ops that aren't real instructions
+            if mnemonic in ("text", "funcdata", "pcdata", "rel"):
+                # TEXT directive can also carry the function name
+                if mnemonic == "text":
+                    text_match = self.GO_TEXT_DIRECTIVE_RE.match(line)
+                    if text_match and current_function is None:
+                        current_function = text_match.group(1)
+                continue
+
+            instruction_count += 1
+
+            # Extract address if any (we already know the line matches)
+            addr_match = re.search(r"0x[0-9a-fA-F]+", line)
+            address = addr_match.group(0) if addr_match else ""
+
+            severity: Severity | None = None
+            reason: str | None = None
+            if mnemonic in self.errors:
+                severity = Severity.ERROR
+                reason = self.errors[mnemonic]
+            elif include_warnings and mnemonic in self.warnings:
+                severity = Severity.WARNING
+                reason = self.warnings[mnemonic]
+            elif mnemonic == "call":
+                # Detect calls to Go's variable-time software divide helpers.
+                # Operand looks like "runtime.udiv(SB)".
+                callee = operands.split("(", 1)[0].strip()
+                if callee in GO_VARTIME_RUNTIME_CALLS:
+                    severity = Severity.ERROR
+                    reason = GO_VARTIME_RUNTIME_CALLS[callee]
+                    mnemonic = callee  # Report the callee, not just "CALL"
+
+            if severity is None:
+                continue
+
+            func_name = current_function or "<unknown>"
+            if self._drop_violation(func_name, file_path):
+                continue
+
+            violations.append(
+                Violation(
+                    function=func_name,
+                    file=file_path,
+                    line=line_no,
+                    address=address,
+                    instruction=line.strip(),
+                    mnemonic=mnemonic.upper(),
+                    reason=reason,
+                    severity=severity,
+                )
+            )
+
+        if current_function is not None:
+            functions.append(
+                {"name": current_function, "instructions": instruction_count}
+            )
+        return functions, violations
+
     def parse(
         self, assembly_text: str, include_warnings: bool = False
     ) -> tuple[list[dict], list[Violation]]:
@@ -809,6 +1152,12 @@ class AssemblyParser:
         Parse assembly text and detect violations.
         Returns (functions, violations).
         """
+        # Detect Go's `-S` output by sentinel comment we inject in GoCompiler,
+        # or by the characteristic STEXT directive in the first ~200 lines.
+        head = assembly_text[:8192]
+        if "ct_analyzer:format=go-gcflags-S" in head or " STEXT " in head:
+            return self._parse_go_format(assembly_text, include_warnings)
+
         functions = []
         violations = []
 
@@ -890,32 +1239,34 @@ class AssemblyParser:
             instruction_count += 1
 
             # Check for violations
+            severity: Severity | None = None
+            reason: str | None = None
             if mnemonic in self.errors:
-                violations.append(
-                    Violation(
-                        function=current_function or "<unknown>",
-                        file=current_file or "",
-                        line=current_line,
-                        address=address,
-                        instruction=instruction,
-                        mnemonic=mnemonic.upper(),
-                        reason=self.errors[mnemonic],
-                        severity=Severity.ERROR,
-                    )
-                )
+                severity = Severity.ERROR
+                reason = self.errors[mnemonic]
             elif include_warnings and mnemonic in self.warnings:
-                violations.append(
-                    Violation(
-                        function=current_function or "<unknown>",
-                        file=current_file or "",
-                        line=current_line,
-                        address=address,
-                        instruction=instruction,
-                        mnemonic=mnemonic.upper(),
-                        reason=self.warnings[mnemonic],
-                        severity=Severity.WARNING,
-                    )
+                severity = Severity.WARNING
+                reason = self.warnings[mnemonic]
+
+            if severity is None:
+                continue
+
+            func_name = current_function or "<unknown>"
+            if self._drop_violation(func_name, current_file):
+                continue
+
+            violations.append(
+                Violation(
+                    function=func_name,
+                    file=current_file or "",
+                    line=current_line,
+                    address=address,
+                    instruction=instruction,
+                    mnemonic=mnemonic.upper(),
+                    reason=reason,
+                    severity=severity,
                 )
+            )
 
         # Don't forget the last function
         if current_function:
@@ -937,6 +1288,7 @@ def analyze_source(
     include_warnings: bool = False,
     function_filter: str = None,
     extra_flags: list[str] = None,
+    include_runtime: bool = False,
 ) -> AnalysisReport:
     """
     Analyze a source file for constant-time violations.
@@ -949,6 +1301,8 @@ def analyze_source(
         include_warnings: Include warning-level violations
         function_filter: Regex pattern to filter functions
         extra_flags: Extra flags to pass to the compiler (ignored for scripting languages)
+        include_runtime: For Go, do not filter out stdlib/runtime functions
+            (off by default; flagging runtime divisions buries user findings)
 
     Returns:
         AnalysisReport with results
@@ -1018,8 +1372,17 @@ def analyze_source(
         with open(asm_path) as f:
             assembly_text = f.read()
 
-        # Parse and analyze
-        parser = AssemblyParser(arch, compiler_obj.name)
+        # Parse and analyze. For Go, restrict reporting to functions defined
+        # in the source file the user asked about: `go build -gcflags=-S`
+        # emits assembly for the entire package, but the user's intent is
+        # almost always to audit one file at a time.
+        restrict_source = str(source_path.absolute()) if language == "go" else None
+        parser = AssemblyParser(
+            arch,
+            compiler_obj.name,
+            source_file=restrict_source,
+            include_runtime=include_runtime,
+        )
         functions, violations = parser.parse(assembly_text, include_warnings)
 
         # Filter functions if requested
@@ -1227,6 +1590,15 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
         default=[],
         help="Extra flags to pass to the compiler",
     )
+    parser.add_argument(
+        "--include-runtime",
+        action="store_true",
+        help=(
+            "Go only: include violations from Go stdlib/runtime functions. "
+            "Off by default because runtime code contains many divisions that "
+            "are unrelated to the user's crypto code and bury real findings."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1267,6 +1639,7 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
                 include_warnings=args.warnings,
                 function_filter=args.func,
                 extra_flags=args.extra_flags,
+                include_runtime=args.include_runtime,
             )
 
         print(format_report(report, output_format))

@@ -107,10 +107,26 @@ if (subtle.ConstantTimeCompare(a, b) == 1) { ... }  // Go
 
 ## Go-Specific Notes
 
-Go compiles to native code, so the analyzer builds a binary and disassembles it using `go tool objdump`. The analyzer:
-- Sets `CGO_ENABLED=0` for pure Go analysis
-- Supports cross-compilation via `GOARCH` environment variable
-- Uses `-N -l` gcflags for O0 (disable optimizations)
+Go compiles to native code, but the analyzer does NOT build-then-disassemble. Instead, it runs `go build -gcflags=-S` from the source file's package directory and parses the compiler's assembly listing. This matters because:
+
+- **Library packages work.** A previous version of this tool relied on `go build` + `go tool objdump`. For non-`main` packages the linker dead-code-eliminated user functions, so the analyzer reported "PASSED" on real crypto libraries. The current tool emits assembly for every defined function, exported or not.
+- **No runtime noise.** `-gcflags=-S` covers only the user's package, so reports are not buried under hundreds of `runtime.*` divisions. Pass `--include-runtime` to opt back in.
+- **Imports are resolved through `go.mod`.** Place crypto libraries inside a real Go module (run `go mod init` if needed) so stdlib imports like `crypto/subtle` work.
+
+Other behavior:
+- Sets `CGO_ENABLED=0` and respects `GOOS`/`GOARCH` for cross-compilation.
+- `--opt-level O0` adds `-N -l` (disable optimization and inlining).
+- Standalone files with no `go.mod` and no imports fall back to `go tool compile -S`.
+
+**Go-specific patterns to know about:**
+
+| Pattern | What the analyzer sees | Why |
+|---------|------------------------|-----|
+| `x / 3329` (constant divisor) | No `IDIV` reported | Go's SSA rewrites compile-time constant divides into multiply-by-magic-number. This is constant-time, but it also means a textbook port of vulnerable C code may *accidentally* be safe. Test with a runtime divisor to validate detection. |
+| `x / params.Q` (runtime divisor) | `IDIVL` (amd64), `SDIVW`+`REMW` (arm64) | True hardware divide; data-dependent timing. |
+| `bytes.Equal(mac, expected)` | Branch warnings | Use `subtle.ConstantTimeCompare` instead. |
+| Older ARMv5/v6 | `CALL runtime.udiv` | Software bit-by-bit divide; flagged. |
+| Plan-9 amd64 mnemonics | `JEQ`/`JCC`/`JLT` etc. | Equivalent to AT&T `JE`/`JNC`/`JL`; the analyzer knows both forms. |
 
 ## Rust-Specific Notes
 

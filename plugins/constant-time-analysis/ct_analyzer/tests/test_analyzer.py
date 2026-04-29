@@ -1393,5 +1393,167 @@ console.log(vulnerableRandom());
                 raise
 
 
+class TestGoAnalyzer(unittest.TestCase):
+    """Integration tests for Go support.
+
+    These regression tests guard against the failure modes of the original
+    Go implementation:
+
+    * It built a full binary and disassembled it, so non-main packages were
+      silently dead-code-eliminated by the linker -- making the analyzer
+      report PASSED on real crypto libraries.
+    * It included Go's runtime (gc, scheduler, maps), so user findings were
+      drowned in 60+ runtime-division false positives.
+    * It missed Go's Plan-9 mnemonics (JCC, JLT, SDIVW, REMW) on cross-arch
+      builds.
+
+    The tests below cover each of those failure modes plus the new benchmark
+    suite under tests/go_benchmark.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.benchmark_dir = (
+            Path(__file__).parent / "go_benchmark"
+        )
+        try:
+            subprocess.run(
+                ["go", "version"],
+                capture_output=True,
+                check=True,
+            )
+            cls.has_go = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            cls.has_go = False
+
+    def _analyze(self, rel_path: str, **kwargs):
+        from analyzer import analyze_source
+
+        path = self.benchmark_dir / rel_path
+        return analyze_source(str(path), **kwargs)
+
+    @unittest.skipUnless(callable(getattr(unittest, "skipUnless", None)), "")
+    def test_non_main_package_is_analyzed(self):
+        """The original Go path silently produced 0 functions when given a
+        non-main package because the linker stripped its symbols. This
+        regression test would have caught that catastrophic failure mode."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("vulnerable/mldsa_decompose.go")
+        self.assertGreater(
+            report.total_functions,
+            0,
+            "Non-main package must produce >0 analyzed functions",
+        )
+        # The vulnerable file must FAIL.
+        self.assertFalse(
+            report.passed,
+            "Vulnerable ML-DSA decompose must be flagged, not silently passed",
+        )
+        # And specifically with an integer-divide finding in user code.
+        idiv = [v for v in report.violations if "DIV" in v.mnemonic]
+        self.assertTrue(
+            any("DecomposeVulnerable" in v.function for v in idiv),
+            "Must find IDIV/SDIV in DecomposeVulnerable",
+        )
+
+    def test_runtime_noise_is_filtered(self):
+        """Verify that runtime/stdlib functions do not appear in the report
+        of a small user file. The old objdump-based path produced ~60 such
+        false positives that buried the real findings."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("vulnerable/mldsa_decompose.go")
+        runtime_finds = [
+            v
+            for v in report.violations
+            if v.function.startswith("runtime.") or v.function.startswith("internal/")
+        ]
+        self.assertEqual(
+            runtime_finds,
+            [],
+            f"runtime/internal violations leaked into report: "
+            f"{[v.function for v in runtime_finds]}",
+        )
+
+    def test_arm64_uses_go_mnemonics(self):
+        """Go's ARM64 assembler emits SDIVW / REMW (with the 32-bit suffix);
+        the analyzer must know about both forms."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("vulnerable/mldsa_decompose.go", arch="arm64")
+        mnemonics = {v.mnemonic for v in report.violations}
+        self.assertTrue(
+            mnemonics & {"SDIVW", "REMW", "SDIV"},
+            f"Expected Go ARM64 divide mnemonic, got {mnemonics}",
+        )
+
+    def test_safe_constant_time_compare_clean(self):
+        """subtle.ConstantTimeCompare wrapper must produce zero ERRORs."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("safe/constant_time_compare.go")
+        self.assertEqual(
+            report.error_count,
+            0,
+            f"crypto/subtle wrapper produced unexpected errors: "
+            f"{[(v.function, v.mnemonic) for v in report.violations]}",
+        )
+
+    def test_safe_barrett_reduction_clean(self):
+        """Barrett reduction (constant-time replacement for divide) must
+        produce zero ERRORs even though the source code logically performs
+        a division."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("safe/barrett_reduction.go")
+        self.assertEqual(report.error_count, 0)
+
+    def test_branch_warnings_detected(self):
+        """Variable-time MAC compare must be detected when --warnings is on
+        (as a conditional branch)."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        report = self._analyze("vulnerable/timing_compare.go", include_warnings=True)
+        warns = [v for v in report.violations if v.severity == Severity.WARNING]
+        self.assertGreater(
+            len(warns),
+            0,
+            "Variable-time compare must produce branch warnings",
+        )
+
+    def test_go_plan9_mnemonics_known(self):
+        """The Go Plan-9 amd64 dialect uses JEQ/JCC/JLT etc. instead of
+        JE/JNC/JL. Make sure they're all known to the warnings dictionary."""
+        from analyzer import DANGEROUS_INSTRUCTIONS
+
+        warnings = DANGEROUS_INSTRUCTIONS["x86_64"].get("warnings", {})
+        for plan9 in ("jeq", "jne", "jlt", "jgt", "jhi", "jls", "jcs", "jcc"):
+            self.assertIn(
+                plan9,
+                warnings,
+                f"Go Plan-9 mnemonic {plan9!r} missing from x86_64 warnings",
+            )
+
+    def test_benchmark_runner_passes(self):
+        """Run the entire Go benchmark and require 100% pass rate. This is
+        the gate for shipping changes to the Go analyzer."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        runner = self.benchmark_dir / "run_benchmark.py"
+        if not runner.exists():
+            self.skipTest("Benchmark runner missing")
+        proc = subprocess.run(
+            [sys.executable, str(runner), "--arch", "x86_64,arm64"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            proc.returncode,
+            0,
+            f"Go benchmark failed:\n{proc.stdout}\n{proc.stderr}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
