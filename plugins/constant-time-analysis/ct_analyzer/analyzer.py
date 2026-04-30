@@ -1051,8 +1051,14 @@ class AssemblyParser:
     # and the function name may contain dots (method receivers, lambdas).
     # We require at least one dot in the symbol so we don't grab every random
     # token that precedes a TEXT-like word.
+    #
+    # The "S...TEXT" word has several flavors:
+    #   STEXT       - normal Go function
+    #   SNOPTRTEXT  - function the gc compiler annotated as no-pointer
+    #   STEXTFIPS   - functions in crypto/internal/fips140/* (FIPS 140 module)
+    # All of them mark a function header, so we accept any S<word>TEXT prefix.
     GO_FUNC_HEADER_RE = re.compile(
-        r"^([\w./<>$\-]*\.[\w<>$]+)\s+S(?:NOPT)?TEXT\b"
+        r"^([\w./<>$\-]*\.[\w<>$]+)\s+S\w*TEXT\w*\b"
     )
     GO_TEXT_DIRECTIVE_RE = re.compile(
         r"^\s*0x[0-9a-fA-F]+\s+\d+\s+\([^)]+\)\s+TEXT\s+([\w./<>$\-]*\.[\w<>$]+)\s*\(SB\)"
@@ -1153,9 +1159,14 @@ class AssemblyParser:
         Returns (functions, violations).
         """
         # Detect Go's `-S` output by sentinel comment we inject in GoCompiler,
-        # or by the characteristic STEXT directive in the first ~200 lines.
+        # or by the characteristic STEXT-family directive in the first ~8 KB.
+        # Go uses STEXT for normal functions, SNOPTRTEXT for no-pointer
+        # variants, and STEXTFIPS for symbols inside crypto/internal/fips140.
         head = assembly_text[:8192]
-        if "ct_analyzer:format=go-gcflags-S" in head or " STEXT " in head:
+        is_go = "ct_analyzer:format=go-gcflags-S" in head or re.search(
+            r"\bS\w*TEXT\w*\b", head
+        )
+        if is_go:
             return self._parse_go_format(assembly_text, include_warnings)
 
         functions = []
