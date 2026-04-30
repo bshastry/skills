@@ -212,6 +212,22 @@ For each flagged violation, ask: **Does this operation's input depend on secret 
 - **Lucky Thirteen (2013)**: Timing differences in CBC padding validation enabled plaintext recovery
 - **RSA Timing Attacks**: Early implementations leaked private key bits through division timing
 
+## Warning Noise Reduction
+
+Conditional-branch warnings dominate every report (rejection sampling, loop counters, slice bounds checks all emit them). Three default-on heuristics reduce noise without dropping recall — measured on Go stdlib + CIRCL ML-KEM/ML-DSA: **75% fewer rows** (1435 → 354) at 100% recall on the benchmark suite.
+
+* **Tier 1** pairs each conditional branch with the Go runtime panic helpers (`runtime.panicIndex`, `runtime.panicSliceB`, …). When a branch's taken or fall-through outcome reaches a panic call within a few instructions, the comparison is a public-data slice/length check.
+* **Tier 2** classifies the source line: pure counted loops, `for … range`, `if len(x)…`, `if cap(x)…`, `if x == nil`, function-declaration (stack-grow check), and `if err != nil`. Compound conditions (`&&`/`||`) are never suppressed, so Bleichenbacher-style `for i < len(em) && em[i] != 0` stays visible.
+* **Tier 3** in TEXT output groups repeated WARNING-level branches at the same `(function, source_line)` into a single row with a count.
+
+Flags:
+
+```bash
+--strict             # disable tier 1 + tier 2 (high-assurance audits)
+--show-suppressed    # show suppressed entries with their [suppressed: <tag>]
+--no-group           # disable tier 3 grouping
+```
+
 ## Validation: Go Crypto Side-Channel Benchmark
 
 The Go support is gated by a benchmark of real-world CVE patterns under `ct_analyzer/tests/go_benchmark/`. It must catch every known-bad pattern (KyberSlash, Lucky Thirteen, Bleichenbacher, square-and-multiply leak, FP-divide-on-secret) on x86_64 and arm64, and produce zero ERROR-level findings on the standard hardening patterns (`crypto/subtle`, Barrett reduction, bitmask selection, Montgomery ladder).

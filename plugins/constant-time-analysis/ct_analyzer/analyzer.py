@@ -64,6 +64,10 @@ class Violation:
     mnemonic: str
     reason: str
     severity: Severity
+    # When set, this violation matched a precision-improving heuristic
+    # (bounds-check pair, loop counter, length check, etc.) and was
+    # suppressed from the default report. Use --show-suppressed to see it.
+    suppressed_by: str = ""
 
 
 @dataclass
@@ -80,11 +84,23 @@ class AnalysisReport:
 
     @property
     def error_count(self) -> int:
+        # Suppressed entries are still "real" findings -- only display layers
+        # hide them. error_count drives the exit code, so we keep it strict.
         return sum(1 for v in self.violations if v.severity == Severity.ERROR)
 
     @property
     def warning_count(self) -> int:
-        return sum(1 for v in self.violations if v.severity == Severity.WARNING)
+        # Visible warnings only; bounds-check / loop-counter suppressions
+        # are excluded from the tally.
+        return sum(
+            1
+            for v in self.violations
+            if v.severity == Severity.WARNING and not v.suppressed_by
+        )
+
+    @property
+    def suppressed_count(self) -> int:
+        return sum(1 for v in self.violations if v.suppressed_by)
 
     @property
     def passed(self) -> bool:
@@ -924,6 +940,160 @@ def get_compiler(name: str, language: str) -> Compiler:
 # software routines. They operate by bit-by-bit subtraction/shift, so their
 # execution time depends on the magnitude of the operands. They are exactly
 # as dangerous as a hardware divide for constant-time purposes.
+# Go panic helpers that are reached only after a public-data check
+# (slice index, slice bounds, shift count, etc.). Conditional branches that
+# target one of these calls are by construction comparing public Go runtime
+# metadata (slice length, capacity, shift amount), never secret data. We
+# suppress the corresponding warning by default; pass --strict to keep them.
+GO_PANIC_HELPERS = {
+    "runtime.panicIndex",
+    "runtime.panicIndexU",
+    "runtime.panicSlice",
+    "runtime.panicSliceB",
+    "runtime.panicSliceBU",
+    "runtime.panicSliceAlen",
+    "runtime.panicSliceAlenU",
+    "runtime.panicSliceAcap",
+    "runtime.panicSliceAcapU",
+    "runtime.panicSliceConvert",
+    "runtime.panicshift",
+    "runtime.goPanicIndex",
+    "runtime.goPanicIndexU",
+    "runtime.goPanicSlice3Alen",
+    "runtime.goPanicSlice3AlenU",
+    "runtime.goPanicSlice3Acap",
+    "runtime.goPanicSlice3AcapU",
+    "runtime.goPanicSlice3B",
+    "runtime.goPanicSlice3BU",
+    "runtime.goPanicSlice3C",
+    "runtime.goPanicSlice3CU",
+}
+
+
+# Tier-2 source-line classifier patterns. These match Go source lines that
+# generate conditional branches but are obviously public-data control flow:
+# loop counters with literal or len(arg) bounds, length checks, and nil
+# checks. They are deliberately CONSERVATIVE: a line containing && or ||
+# never matches, because compound conditions can mix a public bound check
+# with a secret data check (e.g. Bleichenbacher's
+#     for i < len(em) && em[i] != 0x00
+# would be silenced by a sloppier rule). Anything not matched here keeps
+# its WARNING severity and shows up in the default report.
+TIER2_PUBLIC_LINE_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    # for i := 0; i < <literal-or-len(...)/cap(...)>; i++ / i-- / i += N
+    (
+        "loop-counter-literal-bound",
+        re.compile(
+            r"^\s*for\s+\w+\s*:?=\s*\d+\s*;\s*\w+\s*[<>]=?\s*"
+            r"(?:\d+|len\([\w.\[\]]+\)|cap\([\w.\[\]]+\))\s*;\s*"
+            r"\w+\s*(?:\+\+|--|[+\-]=\s*\d+)\s*\{?\s*$"
+        ),
+    ),
+    # for i := 0; i < <identifier>; i++ / i += N
+    #
+    # Conservative-by-assumption: in Go crypto codebases the upper bound of
+    # a counted loop is overwhelmingly a public constant (n, K, KyberQ,
+    # PolySize, ...). If a maintainer writes `for i := 0; i < secretLen; i++`
+    # we WILL silence the resulting branch -- which is a real false negative
+    # for a secret-bit-length leak. Use --strict for high-assurance audits
+    # where any false negative is unacceptable.
+    (
+        "loop-counter-ident-bound",
+        re.compile(
+            r"^\s*for\s+\w+\s*:?=\s*\d+\s*;\s*\w+\s*[<>]=?\s*"
+            r"[A-Za-z_][\w.]*\s*;\s*"
+            r"\w+\s*(?:\+\+|--|[+\-]=\s*\d+)\s*\{?\s*$"
+        ),
+    ),
+    # for i := uint16(0); i < K; i++  (typed initializer; K is identifier)
+    (
+        "loop-counter-typed-bound",
+        re.compile(
+            r"^\s*for\s+\w+\s*:?=\s*\w+\(\s*\d+\s*\)\s*;\s*\w+\s*[<>]=?\s*"
+            r"\w+\s*;\s*\w+\s*(?:\+\+|--)\s*\{?\s*$"
+        ),
+    ),
+    # for i := range x  /  for _, v := range x  /  for i, v := range x
+    ("loop-range", re.compile(r"^\s*for\s+[\w,\s_]*:?=\s*range\s+[\w.\[\]]+\s*\{?\s*$")),
+    # if len(x) <op> y
+    (
+        "length-check",
+        re.compile(
+            r"^\s*if\s+len\([\w.\[\]]+\)\s*[!=<>]+\s*[\w.()]+\s*\{?\s*$"
+        ),
+    ),
+    # if init-stmt; len(x) <op> y    (e.g. "if total := len(in) + n; cap(in) >= total {")
+    (
+        "length-check-init",
+        re.compile(
+            r"^\s*if\s+\w+\s*:?=\s*[\w.()+\-*/\s]+;\s*"
+            r"(?:len|cap)\([\w.\[\]]+\)\s*[!=<>]+\s*[\w.]+\s*\{?\s*$"
+        ),
+    ),
+    # if cap(x) <op> y
+    (
+        "capacity-check",
+        re.compile(r"^\s*if\s+cap\([\w.\[\]]+\)\s*[!=<>]+\s*[\w.()]+\s*\{?\s*$"),
+    ),
+    # if x == nil / if x != nil
+    ("nil-check", re.compile(r"^\s*if\s+[\w.\[\]()]+\s*[!=]=\s*nil\s*\{?\s*$")),
+    # function-declaration line. Go inserts a stack-grow check at the
+    # prologue, which compares SP against runtime metadata. Match any line
+    # that begins with `func` -- the rest is too variable to safely
+    # constrain (generics with nested brackets, multi-line signatures, etc).
+    ("stack-grow-check", re.compile(r"^\s*func\s+\S")),
+    # return early-exit form: if err != nil { return err }
+    ("err-check", re.compile(r"^\s*if\s+\w*[Ee]rr\w*\s*!=\s*nil\s*\{?\s*$")),
+)
+
+
+def classify_source_line(text: str) -> str | None:
+    """Return a suppression tag if the source line is one of the well-known
+    public-data control-flow patterns (loop counter, length check, etc.).
+    Returns None when the line should keep its WARNING severity."""
+    if "&&" in text or "||" in text:
+        return None  # never silence compound conditions
+    for tag, pat in TIER2_PUBLIC_LINE_PATTERNS:
+        if pat.match(text):
+            return tag
+    return None
+
+
+def _read_source_line(file_path: str, line_no: int, _cache: dict = {}) -> str | None:
+    """Read a single line from a source file, with a tiny in-process cache."""
+    if not file_path or line_no is None:
+        return None
+    lines = _cache.get(file_path)
+    if lines is None:
+        try:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except OSError:
+            lines = []
+        _cache[file_path] = lines
+    if 1 <= line_no <= len(lines):
+        return lines[line_no - 1].rstrip("\n")
+    return None
+
+
+def apply_source_classifier(violations: list[Violation]) -> int:
+    """Mark warnings as suppressed when their source line is a recognised
+    public-control-flow pattern. Errors are never touched.
+    Returns the number of newly suppressed violations."""
+    n = 0
+    for v in violations:
+        if v.severity != Severity.WARNING or v.suppressed_by:
+            continue
+        line_text = _read_source_line(v.file, v.line)
+        if line_text is None:
+            continue
+        tag = classify_source_line(line_text)
+        if tag is not None:
+            v.suppressed_by = tag
+            n += 1
+    return n
+
+
 GO_VARTIME_RUNTIME_CALLS = {
     "runtime.udiv": "CALL to runtime.udiv (software unsigned divide); execution time depends on operand magnitudes",
     "runtime._udiv": "CALL to runtime._udiv (software unsigned divide); execution time depends on operand magnitudes",
@@ -1067,21 +1237,22 @@ class AssemblyParser:
     def _parse_go_format(
         self, assembly_text: str, include_warnings: bool
     ) -> tuple[list[dict], list[Violation]]:
-        functions: list[dict] = []
-        violations: list[Violation] = []
+        # Two-pass parser:
+        #   Pass 1 collects per-function instruction tuples.
+        #   Pass 2 emits violations with cross-instruction context (most
+        #   importantly, recognising branches whose target is a Go panic
+        #   helper so we can mark them as bounds-check noise).
+        per_func_instrs: list[tuple[str, list[dict]]] = []
         current_function: str | None = None
-        instruction_count = 0
+        current_instrs: list[dict] = []
 
         for line in assembly_text.split("\n"):
-            # Function header line
             header = self.GO_FUNC_HEADER_RE.match(line)
             if header:
                 if current_function is not None:
-                    functions.append(
-                        {"name": current_function, "instructions": instruction_count}
-                    )
+                    per_func_instrs.append((current_function, current_instrs))
                 current_function = header.group(1)
-                instruction_count = 0
+                current_instrs = []
                 continue
 
             instr = self.GO_INSTR_RE.match(line)
@@ -1095,61 +1266,170 @@ class AssemblyParser:
 
             # Skip pseudo-ops that aren't real instructions
             if mnemonic in ("text", "funcdata", "pcdata", "rel"):
-                # TEXT directive can also carry the function name
                 if mnemonic == "text":
                     text_match = self.GO_TEXT_DIRECTIVE_RE.match(line)
                     if text_match and current_function is None:
                         current_function = text_match.group(1)
                 continue
 
-            instruction_count += 1
+            addr_match = re.search(r"0x([0-9a-fA-F]+)", line)
+            address_int = int(addr_match.group(1), 16) if addr_match else -1
+            address = f"0x{addr_match.group(1)}" if addr_match else ""
 
-            # Extract address if any (we already know the line matches)
-            addr_match = re.search(r"0x[0-9a-fA-F]+", line)
-            address = addr_match.group(0) if addr_match else ""
+            current_instrs.append({
+                "addr": address_int,
+                "address_str": address,
+                "mnemonic": mnemonic,
+                "operands": operands,
+                "file": file_path,
+                "line": line_no,
+                "raw": line.strip(),
+            })
 
-            severity: Severity | None = None
-            reason: str | None = None
-            if mnemonic in self.errors:
-                severity = Severity.ERROR
-                reason = self.errors[mnemonic]
-            elif include_warnings and mnemonic in self.warnings:
-                severity = Severity.WARNING
-                reason = self.warnings[mnemonic]
-            elif mnemonic == "call":
-                # Detect calls to Go's variable-time software divide helpers.
-                # Operand looks like "runtime.udiv(SB)".
-                callee = operands.split("(", 1)[0].strip()
-                if callee in GO_VARTIME_RUNTIME_CALLS:
+        if current_function is not None:
+            per_func_instrs.append((current_function, current_instrs))
+
+        # Pass 2: emit violations with full per-function context.
+        functions: list[dict] = []
+        violations: list[Violation] = []
+
+        for func_name, instrs in per_func_instrs:
+            functions.append({"name": func_name, "instructions": len(instrs)})
+            if self._drop_violation(func_name, instrs[0]["file"] if instrs else None):
+                continue
+
+            # Build address->index map and the set of indices that are part
+            # of a panic block. A panic block is the CALL into a Go panic
+            # helper plus the 1-4 setup instructions immediately before it
+            # (which load the arguments). We use indices, not addresses,
+            # so we can also check "is the next instruction after a branch
+            # in a panic block" (fall-through case).
+            addr_to_idx: dict[int, int] = {
+                ins["addr"]: i for i, ins in enumerate(instrs) if ins["addr"] >= 0
+            }
+            panic_idxs: set[int] = set()
+            for i, ins in enumerate(instrs):
+                if ins["mnemonic"] != "call":
+                    continue
+                callee = ins["operands"].split("(", 1)[0].strip()
+                if callee not in GO_PANIC_HELPERS:
+                    continue
+                panic_idxs.add(i)
+                for k in range(1, 5):
+                    if i - k < 0:
+                        break
+                    panic_idxs.add(i - k)
+            # Convenience: a set of addresses that are panic-block entries.
+            panic_addrs: set[int] = {instrs[i]["addr"] for i in panic_idxs}
+
+            for i, ins in enumerate(instrs):
+                mnemonic = ins["mnemonic"]
+                operands = ins["operands"]
+                severity: Severity | None = None
+                reason: str | None = None
+                disp_mnemonic = mnemonic
+                if mnemonic in self.errors:
                     severity = Severity.ERROR
-                    reason = GO_VARTIME_RUNTIME_CALLS[callee]
-                    mnemonic = callee  # Report the callee, not just "CALL"
+                    reason = self.errors[mnemonic]
+                elif include_warnings and mnemonic in self.warnings:
+                    severity = Severity.WARNING
+                    reason = self.warnings[mnemonic]
+                elif mnemonic == "call":
+                    callee = operands.split("(", 1)[0].strip()
+                    if callee in GO_VARTIME_RUNTIME_CALLS:
+                        severity = Severity.ERROR
+                        reason = GO_VARTIME_RUNTIME_CALLS[callee]
+                        disp_mnemonic = callee
 
-            if severity is None:
-                continue
+                if severity is None:
+                    continue
 
-            func_name = current_function or "<unknown>"
-            if self._drop_violation(func_name, file_path):
-                continue
-
-            violations.append(
-                Violation(
+                v = Violation(
                     function=func_name,
-                    file=file_path,
-                    line=line_no,
-                    address=address,
-                    instruction=line.strip(),
-                    mnemonic=mnemonic.upper(),
+                    file=ins["file"],
+                    line=ins["line"],
+                    address=ins["address_str"],
+                    instruction=ins["raw"],
+                    mnemonic=disp_mnemonic.upper(),
                     reason=reason,
                     severity=severity,
                 )
-            )
 
-        if current_function is not None:
-            functions.append(
-                {"name": current_function, "instructions": instruction_count}
-            )
+                # Tier 1: a conditional branch is a Go bounds check if
+                # *either* of its two outcomes lands in a panic block:
+                #   * the explicit target (taken case), or
+                #   * the fall-through one or two instructions later.
+                # The fall-through case happens when the compiler emits the
+                # happy-path branch as "JCC happy_label" and lets execution
+                # walk into the trampoline.
+                if severity == Severity.WARNING:
+                    if self._branch_is_bounds_check(
+                        i, instrs, addr_to_idx, panic_addrs, panic_idxs, operands
+                    ):
+                        v.suppressed_by = "bounds-check"
+
+                violations.append(v)
+
         return functions, violations
+
+    @staticmethod
+    def _branch_is_bounds_check(
+        idx: int,
+        instrs: list[dict],
+        addr_to_idx: dict[int, int],
+        panic_addrs: set[int],
+        panic_idxs: set[int],
+        operands: str,
+    ) -> bool:
+        """A conditional branch counts as a Go bounds-check if either its
+        explicit target or its fall-through reaches a panic block within
+        a small number of instructions.
+
+        Both directions must be checked because Go's compiler is free to
+        emit either ``JCC happy; <panic block>`` or ``JCS panic_label``.
+        We follow at most one unconditional jump on the fall-through side
+        to handle the ``JLT happy; JMP panic`` pattern.
+        """
+        # 1. Explicit target.
+        target = AssemblyParser._extract_branch_target(operands)
+        if target is not None and target in panic_addrs:
+            return True
+
+        # 2. Fall-through within ~3 instructions.
+        max_lookahead = 3
+        for k in range(1, max_lookahead + 1):
+            j = idx + k
+            if j >= len(instrs):
+                break
+            if j in panic_idxs:
+                return True
+            jm = instrs[j]["mnemonic"]
+            # Follow a single unconditional JMP (the trampoline indirection).
+            if jm == "jmp" and k == 1:
+                jt = AssemblyParser._extract_branch_target(instrs[j]["operands"])
+                if jt is not None and jt in panic_addrs:
+                    return True
+                if jt is not None and jt in addr_to_idx and addr_to_idx[jt] in panic_idxs:
+                    return True
+        return False
+
+    @staticmethod
+    def _extract_branch_target(operands: str) -> int | None:
+        """Pull the integer target offset out of a Go branch operand.
+
+        Go's -S branches look like ``JCC 28`` or ``JCC label_name`` or
+        ``JCC 0x123``. We only need the numeric form (the human-readable
+        labels never appear in -S output for compiled functions).
+        """
+        op = operands.strip().split(",")[-1].strip()
+        # Drop trailing comments / suffixes
+        op = op.split()[0] if op else op
+        try:
+            if op.startswith("0x") or op.startswith("0X"):
+                return int(op, 16)
+            return int(op)
+        except (ValueError, TypeError):
+            return None
 
     def parse(
         self, assembly_text: str, include_warnings: bool = False
@@ -1300,6 +1580,7 @@ def analyze_source(
     function_filter: str = None,
     extra_flags: list[str] = None,
     include_runtime: bool = False,
+    strict: bool = False,
 ) -> AnalysisReport:
     """
     Analyze a source file for constant-time violations.
@@ -1402,6 +1683,15 @@ def analyze_source(
             violations = [v for v in violations if pattern.search(v.function)]
             functions = [f for f in functions if pattern.search(f["name"])]
 
+        if strict:
+            # Strict mode: undo tier-1 markings so the report is the raw
+            # unfiltered set of branches.
+            for v in violations:
+                v.suppressed_by = ""
+        elif include_warnings:
+            # Tier 2: source-line classifier on top of the parser's tier 1.
+            apply_source_classifier(violations)
+
         return AnalysisReport(
             architecture=arch,
             compiler=compiler_obj.name,
@@ -1459,10 +1749,31 @@ def analyze_assembly(
     )
 
 
-def format_report(report: AnalysisReport, format_type: OutputFormat) -> str:
-    """Format an analysis report for output."""
+def format_report(
+    report: AnalysisReport,
+    format_type: OutputFormat,
+    show_suppressed: bool = False,
+    group: bool = True,
+) -> str:
+    """Format an analysis report for output.
+
+    Args:
+        report: the AnalysisReport to render.
+        format_type: TEXT (human-readable), JSON, or GITHUB annotations.
+        show_suppressed: include violations that were soft-suppressed by
+            tier 1 (bounds-check pairing) or tier 2 (source-line classifier).
+            Default: hide them.
+        group: in TEXT output, collapse repeated WARNING-level branches at
+            the same (function, source-line) into a single row with a count.
+            ERRORs are always reported individually. Default: on.
+    """
+
+    def visible(v: Violation) -> bool:
+        return show_suppressed or not v.suppressed_by
 
     if format_type == OutputFormat.JSON:
+        # JSON always emits everything plus the suppression metadata so
+        # downstream tools can filter however they like.
         return json.dumps(
             {
                 "architecture": report.architecture,
@@ -1473,6 +1784,7 @@ def format_report(report: AnalysisReport, format_type: OutputFormat) -> str:
                 "total_instructions": report.total_instructions,
                 "error_count": report.error_count,
                 "warning_count": report.warning_count,
+                "suppressed_count": report.suppressed_count,
                 "passed": report.passed,
                 "violations": [
                     {
@@ -1484,6 +1796,7 @@ def format_report(report: AnalysisReport, format_type: OutputFormat) -> str:
                         "mnemonic": v.mnemonic,
                         "reason": v.reason,
                         "severity": v.severity.value,
+                        "suppressed_by": v.suppressed_by or None,
                     }
                     for v in report.violations
                 ],
@@ -1492,8 +1805,11 @@ def format_report(report: AnalysisReport, format_type: OutputFormat) -> str:
         )
 
     elif format_type == OutputFormat.GITHUB:
+        # GitHub annotations clutter the PR review UI; suppress by default.
         lines = []
         for v in report.violations:
+            if not visible(v):
+                continue
             level = "error" if v.severity == Severity.ERROR else "warning"
             file_ref = f"file={v.file}" if v.file else ""
             line_ref = f",line={v.line}" if v.line else ""
@@ -1502,44 +1818,114 @@ def format_report(report: AnalysisReport, format_type: OutputFormat) -> str:
             )
         return "\n".join(lines)
 
-    else:  # TEXT
-        lines = []
-        lines.append("=" * 60)
-        lines.append("Constant-Time Analysis Report")
-        lines.append("=" * 60)
-        lines.append(f"Source: {report.source_file}")
-        lines.append(f"Architecture: {report.architecture}")
-        lines.append(f"Compiler: {report.compiler}")
-        lines.append(f"Optimization: {report.optimization}")
-        lines.append(f"Functions analyzed: {report.total_functions}")
-        lines.append(f"Instructions analyzed: {report.total_instructions}")
-        lines.append("")
+    # TEXT
+    lines = []
+    lines.append("=" * 60)
+    lines.append("Constant-Time Analysis Report")
+    lines.append("=" * 60)
+    lines.append(f"Source: {report.source_file}")
+    lines.append(f"Architecture: {report.architecture}")
+    lines.append(f"Compiler: {report.compiler}")
+    lines.append(f"Optimization: {report.optimization}")
+    lines.append(f"Functions analyzed: {report.total_functions}")
+    lines.append(f"Instructions analyzed: {report.total_instructions}")
+    lines.append("")
 
-        if report.violations:
-            lines.append("VIOLATIONS FOUND:")
-            lines.append("-" * 40)
-            for v in report.violations:
-                severity_marker = "ERROR" if v.severity == Severity.ERROR else "WARN"
-                lines.append(f"[{severity_marker}] {v.mnemonic}")
+    visible_viols = [v for v in report.violations if visible(v)]
+    errors = [v for v in visible_viols if v.severity == Severity.ERROR]
+    warnings = [v for v in visible_viols if v.severity == Severity.WARNING]
+
+    if errors:
+        lines.append("ERRORS:")
+        lines.append("-" * 40)
+        for v in errors:
+            tag = f" [suppressed: {v.suppressed_by}]" if v.suppressed_by else ""
+            lines.append(f"[ERROR] {v.mnemonic}{tag}")
+            lines.append(f"  Function: {v.function}")
+            if v.file:
+                file_info = f"  File: {v.file}"
+                if v.line:
+                    file_info += f":{v.line}"
+                lines.append(file_info)
+            if v.address:
+                lines.append(f"  Address: {v.address}")
+            lines.append(f"  Reason: {v.reason}")
+            lines.append("")
+
+    if warnings:
+        lines.append("WARNINGS:")
+        lines.append("-" * 40)
+        if group:
+            # Tier 3: collapse repeated warnings at the same source location.
+            from collections import defaultdict
+
+            groups: defaultdict = defaultdict(list)
+            for v in warnings:
+                groups[(v.function, v.file, v.line)].append(v)
+
+            # Sort: most repeated first, then alphabetically by function.
+            ordered = sorted(
+                groups.items(),
+                key=lambda kv: (-len(kv[1]), kv[0][0], kv[0][2] or 0),
+            )
+            for (func, fpath, line_no), vs in ordered:
+                count = len(vs)
+                mnems = sorted({v.mnemonic for v in vs})
+                first = vs[0]
+                tag = (
+                    f" [suppressed: {first.suppressed_by}]"
+                    if first.suppressed_by
+                    else ""
+                )
+                hdr = f"[WARN x{count}] {','.join(mnems)}{tag}"
+                lines.append(hdr)
+                lines.append(f"  Function: {func}")
+                if fpath:
+                    src = f"  Source:   {fpath}"
+                    if line_no:
+                        src += f":{line_no}"
+                    lines.append(src)
+                if count > 1:
+                    addrs = ", ".join(v.address for v in vs[:6] if v.address)
+                    if len(vs) > 6:
+                        addrs += f", … (+{len(vs)-6} more)"
+                    if addrs:
+                        lines.append(f"  Addresses: {addrs}")
+                else:
+                    if first.address:
+                        lines.append(f"  Address:  {first.address}")
+                lines.append(f"  Reason:   {first.reason}")
+                lines.append("")
+        else:
+            for v in warnings:
+                tag = (
+                    f" [suppressed: {v.suppressed_by}]" if v.suppressed_by else ""
+                )
+                lines.append(f"[WARN] {v.mnemonic}{tag}")
                 lines.append(f"  Function: {v.function}")
                 if v.file:
-                    file_info = f"  File: {v.file}"
+                    fi = f"  File: {v.file}"
                     if v.line:
-                        file_info += f":{v.line}"
-                    lines.append(file_info)
+                        fi += f":{v.line}"
+                    lines.append(fi)
                 if v.address:
                     lines.append(f"  Address: {v.address}")
                 lines.append(f"  Reason: {v.reason}")
                 lines.append("")
-        else:
-            lines.append("No violations found.")
 
-        lines.append("-" * 40)
-        status = "PASSED" if report.passed else "FAILED"
-        lines.append(f"Result: {status}")
-        lines.append(f"Errors: {report.error_count}, Warnings: {report.warning_count}")
+    if not visible_viols:
+        lines.append("No violations found.")
 
-        return "\n".join(lines)
+    lines.append("-" * 40)
+    status = "PASSED" if report.passed else "FAILED"
+    lines.append(f"Result: {status}")
+    sup = report.suppressed_count
+    sup_note = f", Suppressed: {sup} (use --show-suppressed)" if sup else ""
+    lines.append(
+        f"Errors: {report.error_count}, Warnings: {report.warning_count}{sup_note}"
+    )
+
+    return "\n".join(lines)
 
 
 def main():
@@ -1610,6 +1996,34 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
             "are unrelated to the user's crypto code and bury real findings."
         ),
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Disable noise-reduction heuristics: do not suppress branches "
+            "paired with Go panic helpers (bounds checks) or branches whose "
+            "source line is a recognised public-control-flow pattern (loop "
+            "counters, length checks, nil checks). Recommended for "
+            "high-assurance audits where any false negative is unacceptable."
+        ),
+    )
+    parser.add_argument(
+        "--show-suppressed",
+        action="store_true",
+        help=(
+            "Include violations that were soft-suppressed by tier 1 "
+            "(bounds-check pairing) or tier 2 (source-line classifier). "
+            "Each is rendered with a [suppressed: <reason>] tag."
+        ),
+    )
+    parser.add_argument(
+        "--no-group",
+        action="store_true",
+        help=(
+            "Disable grouping of repeated WARNING-level branches at the same "
+            "(function, source-line). Useful when piping JSON to other tools."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1651,9 +2065,17 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
                 function_filter=args.func,
                 extra_flags=args.extra_flags,
                 include_runtime=args.include_runtime,
+                strict=args.strict,
             )
 
-        print(format_report(report, output_format))
+        print(
+            format_report(
+                report,
+                output_format,
+                show_suppressed=args.show_suppressed,
+                group=not args.no_group,
+            )
+        )
         return 0 if report.passed else 1
 
     except (FileNotFoundError, RuntimeError, subprocess.CalledProcessError) as e:

@@ -1535,6 +1535,75 @@ class TestGoAnalyzer(unittest.TestCase):
                 f"Go Plan-9 mnemonic {plan9!r} missing from x86_64 warnings",
             )
 
+    def test_tier2_classifier_recognises_pure_loops(self):
+        """The source-line classifier must tag obvious public-data control
+        flow as suppressible -- but never compound conditions."""
+        from analyzer import classify_source_line
+
+        # Should be suppressed:
+        for line in [
+            "for i := 0; i < 256; i++ {",
+            "for i := 0; i < n; i += 2 {",
+            "for i := uint16(0); i < K; i++ {",
+            "for i := range buf {",
+            "if len(em) < 11 {",
+            "if cap(in) >= total {",
+            "if x == nil {",
+            "if err != nil {",
+            "func polyAdd[T ~[n]fieldElement](a, b T) (s T) {",
+        ]:
+            self.assertIsNotNone(
+                classify_source_line(line),
+                f"should be suppressed: {line!r}",
+            )
+
+        # Must NOT be suppressed (compound or genuinely interesting):
+        for line in [
+            # Bleichenbacher's compound condition: one clause is a length
+            # check, the other is a secret-byte equality. Suppressing this
+            # would create a real false negative.
+            "for i < len(em) && em[i] != 0x00 {",
+            "if r0 > gamma2 {",
+            "if (scalar>>uint(i))&1 == 1 {",
+            "if subtle.ConstantTimeCompare(a, b) == 1 {",
+        ]:
+            self.assertIsNone(
+                classify_source_line(line),
+                f"must NOT be suppressed: {line!r}",
+            )
+
+    def test_tier1_pairs_branch_with_panic(self):
+        """A function that does an obvious bounds-checked slice access must
+        produce no visible warnings under default precision settings."""
+        if not self.has_go:
+            self.skipTest("Go not available")
+        # Build a tiny package that consists of a single bounds-checked
+        # slice index. With tier 1 enabled, the resulting JLT/JHI should
+        # be tagged 'bounds-check' and hidden.
+        import tempfile
+        from analyzer import analyze_source
+
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "go.mod").write_text("module bcheck\n\ngo 1.21\n")
+            (Path(tmp) / "main.go").write_text(
+                "package main\n"
+                "//go:noinline\n"
+                "func PickByte(buf []byte, i int) byte { return buf[i] }\n"
+                "func main() { _ = PickByte(nil, 0) }\n"
+            )
+            report = analyze_source(
+                str(Path(tmp) / "main.go"), include_warnings=True
+            )
+            # All branches in PickByte should be either runtime stack-grow
+            # checks (suppressed by tier 2) or panic-paired bounds checks
+            # (suppressed by tier 1). Visible warning_count should be 0.
+            self.assertEqual(
+                report.warning_count,
+                0,
+                f"expected zero visible warnings, got: "
+                f"{[(v.function, v.mnemonic, v.suppressed_by) for v in report.violations]}",
+            )
+
     def test_benchmark_runner_passes(self):
         """Run the entire Go benchmark and require 100% pass rate. This is
         the gate for shipping changes to the Go analyzer."""
