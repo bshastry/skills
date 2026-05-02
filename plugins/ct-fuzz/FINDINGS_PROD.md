@@ -186,11 +186,66 @@ the "is there a control-flow leak?" question definitively. If MSan
 clears the target, the residual signal is a microarchitectural or
 harness artifact and the dudect finding can be downgraded.
 
-This is exactly the case `DESIGN.md` describes: ct-fuzz finds *effects*
-(timing varies with secret), not *causes* (which instruction is
-responsible). When the effect is real but the cause needs a finer tool,
-the workflow is: dudect → MSan/ctgrind → if confirmed, file with the
-upstream.
+### Cross-check: static `constant-time-analysis` on the AES-128-GCM call chain
+
+I ran the static analyzer's instruction scan over both binaries' AES-GCM
+hot paths to see whether the dudect signal corresponds to a flaggable
+instruction. Headline: **no DIV, no secret-content-dependent branches in
+either Go's or ring's AES-NI path.** The only conditional jumps are
+loop counters and public-input dispatch.
+
+Ring AES-128-GCM AES-NI path (counted from `objdump -d ct-fuzz-rust`):
+
+| Function | ins | jcc | div |
+|---|---:|---:|---:|
+| `ring_core_aes_gcm_enc_update_vaes_avx2` | 397 | 13 | 0 |
+| `ring_core_gcm_ghash_avx` | 342 | 10 | 0 |
+| `ring_core_gcm_ghash_clmul` | 322 | 9 | 0 |
+| `_aesni_ctr32_ghash_6x` (inner CTR+GHASH 6-block loop) | 286 | 3 | 0 |
+| `ring_core_aesni_gcm_encrypt` | 235 | 3 | 0 |
+| `ring_core_aes_hw_set_encrypt_key_base` (key schedule) | 113 | 2 | 0 |
+| `ring_core_aes_hw_set_encrypt_key_alt` | 130 | 4 | 0 |
+
+Disassembly of the conditional branches in the inner loop shows they
+gate on **counter / length comparisons** like `jb 4d2c0` after `sub
+$0x6, %rdx` — i.e. "do we have at least 6 more blocks?" — not on key
+content. Same shape in the key schedule: `cmp $0x100, %esi; je …` is
+checking whether the requested key size is 256 bits (vs 128). These
+branches are public-input-dependent (length, counter), not
+secret-content-dependent.
+
+Go's `crypto/internal/fips140/aes/gcm.gcmAesEnc.abi0` (the AES-NI
+encrypt+GHASH inner routine):
+
+| Function | ins | jcc | div |
+|---|---:|---:|---:|
+| `gcmAesEnc.abi0` | 893 | 15 | 0 |
+| `gcmAesDec.abi0` | 557 | 12 | 0 |
+| `gcmAesInit.abi0` | 87 | 3 | 0 |
+| `expandKeyAsm.abi0` (AES-NI key schedule) | 97 | 3 | 0 |
+| `expandKeyGeneric` (software fallback, not used on AES-NI hosts) | 236 | 21 | **1** |
+
+Same picture: 0 DIV in the AES-NI path on both libraries; conditional
+jumps are loop control and length dispatch.
+
+(Note: Go's `expandKeyGeneric` has 1 DIVQ — the software fallback used
+when AES-NI isn't available. On AES-NI machines this code is unreachable
+because Go's runtime CPU dispatch picks `expandKeyAsm`. Confirms the
+static analyzer's value: it surfaced a real DIV in a path we didn't
+need to worry about on this host.)
+
+**Conclusion from static cross-check:** the static analyzer cannot
+attribute the |t1|=12.5 dudect signal in ring's AES-128-GCM seal to a
+flaggable instruction. The DIV-shaped and branch-shaped signatures the
+analyzer can detect are absent. If the dudect signal is real, it's at
+a granularity below what static-at-instruction can see — exactly the
+microarchitectural / drop-overhead / runtime-scaffolding territory
+DESIGN.md flagged as ct-fuzz's domain over static.
+
+This **strengthens** the "escalate to MSan/ctgrind" recommendation:
+neither static nor wall-clock alone gives a confident verdict, and the
+proper next tool is the one that tracks data flow through every
+instruction.
 
 For now, the operational verdict on **ring 0.17 AES-128-GCM seal under
 a per-call key-import workload** is: **don't rely on per-call CT;
