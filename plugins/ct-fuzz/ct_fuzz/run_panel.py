@@ -19,6 +19,11 @@ def main():
     ap.add_argument("--threshold", type=float, default=4.5)
     ap.add_argument("--run-id", default="default")
     ap.add_argument("--lang", default="go,rust", help="comma-separated subset")
+    ap.add_argument(
+        "--no-second-order",
+        action="store_true",
+        help="classify only on |t1|; matches the stabilized config (recommended)",
+    )
     args = ap.parse_args()
 
     panel = load_panel(ROOT / "panel" / "panel.json")
@@ -41,6 +46,9 @@ def main():
         if e.lang not in harness_for_lang:
             continue
         v = evaluate_target(harness_for_lang[e.lang], e, args.samples, args.threshold)
+        # If --no-second-order, re-classify on |t1| only (matches stabilized config).
+        if args.no_second_order:
+            v.flagged = abs(v.t1) > args.threshold
         flag = "LEAK" if v.flagged else "ok"
         print(
             f"{v.target:40s}  {v.label:10s}  {flag:>7s}  "

@@ -77,7 +77,7 @@ def compute(verdicts: list[Verdict]) -> PanelMetrics:
         if v.label == "microarch":
             microarch += 1
             continue
-        if v.label == "unknown":
+        if v.label in ("unknown", "production"):
             total_unknown += 1
             if v.flagged:
                 flagged_unknown += 1

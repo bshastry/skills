@@ -1,0 +1,332 @@
+{
+  "run_id": "production",
+  "ts": 1777747652.1365712,
+  "config": {
+    "samples": 30000,
+    "threshold": 8.0,
+    "lang": "go,rust"
+  },
+  "verdicts": [
+    {
+      "target": "subtle_ConstantTimeCompare_32",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 13.973696865347025,
+      "t1": 10.504531670349415,
+      "t2": 13.973696865347025,
+      "crop_p": 0.9,
+      "n_samples_a": 14950,
+      "n_samples_b": 15050
+    },
+    {
+      "target": "subtle_ConstantTimeCopy_32",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 89.04702652302333,
+      "t1": 1.9875699751978937,
+      "t2": 89.04702652302333,
+      "crop_p": 0.9,
+      "n_samples_a": 15019,
+      "n_samples_b": 14981
+    },
+    {
+      "target": "curve25519_X25519",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 11.154466163376227,
+      "t1": 2.742383574478019,
+      "t2": 11.154466163376227,
+      "crop_p": 0.8,
+      "n_samples_a": 14970,
+      "n_samples_b": 15030
+    },
+    {
+      "target": "edwards25519_ScalarBaseMult",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 41.16809746207161,
+      "t1": 1.6395044118448332,
+      "t2": 41.16809746207161,
+      "crop_p": 0.8,
+      "n_samples_a": 14865,
+      "n_samples_b": 15135
+    },
+    {
+      "target": "sha256_secret",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 36.23384677776824,
+      "t1": 3.723238683445179,
+      "t2": 36.23384677776824,
+      "crop_p": 0.9,
+      "n_samples_a": 15165,
+      "n_samples_b": 14835
+    },
+    {
+      "target": "bytes_Equal_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 967.577226131383,
+      "t1": 967.577226131383,
+      "t2": 251.23754185129832,
+      "crop_p": 0.9,
+      "n_samples_a": 14980,
+      "n_samples_b": 15020
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 422996.21554188547,
+      "t1": 422996.21554188547,
+      "t2": 358.0539196132217,
+      "crop_p": 0.5,
+      "n_samples_a": 15041,
+      "n_samples_b": 14959
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": false,
+      "t_stat": 5.428310301889716,
+      "t1": 1.1008522123120283,
+      "t2": 5.428310301889716,
+      "crop_p": 0.9,
+      "n_samples_a": 15005,
+      "n_samples_b": 14995
+    },
+    {
+      "target": "bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 595.9353205959414,
+      "t1": 595.9353205959414,
+      "t2": 27.400399666162063,
+      "crop_p": 0.5,
+      "n_samples_a": 15099,
+      "n_samples_b": 14901
+    },
+    {
+      "target": "elliptic_P256_ScalarBaseMult",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 36.37283437642903,
+      "t1": 2.513523236297022,
+      "t2": 36.37283437642903,
+      "crop_p": 0.8,
+      "n_samples_a": 15015,
+      "n_samples_b": 14985
+    },
+    {
+      "target": "rsa_decrypt_unblinded",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 113.11411063992784,
+      "t1": 41.56712424892665,
+      "t2": 113.11411063992784,
+      "crop_p": 0.6,
+      "n_samples_a": 14922,
+      "n_samples_b": 15078
+    },
+    {
+      "target": "rsa_decrypt_blinded",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 563.6315946375507,
+      "t1": 72.79204449130923,
+      "t2": 563.6315946375507,
+      "crop_p": 0.5,
+      "n_samples_a": 14950,
+      "n_samples_b": 15050
+    },
+    {
+      "target": "aes128gcm_seal_vary_key",
+      "label": "production",
+      "flagged": false,
+      "t_stat": 1.8070643981218513,
+      "t1": 1.8070643981218513,
+      "t2": 1.6265145878987408,
+      "crop_p": 0.8,
+      "n_samples_a": 15126,
+      "n_samples_b": 14874
+    },
+    {
+      "target": "aes128gcm_open_invalid_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 13.435451071042902,
+      "t1": 1.354653398638049,
+      "t2": 13.435451071042902,
+      "crop_p": 0.5,
+      "n_samples_a": 14926,
+      "n_samples_b": 15074
+    },
+    {
+      "target": "ed25519_sign_vary_key",
+      "label": "production",
+      "flagged": false,
+      "t_stat": 4.271789006533764,
+      "t1": 0.8870973479264929,
+      "t2": 4.271789006533764,
+      "crop_p": 0.8,
+      "n_samples_a": 15118,
+      "n_samples_b": 14882
+    },
+    {
+      "target": "ecdsa_p256_sign_vary_key",
+      "label": "production",
+      "flagged": false,
+      "t_stat": 0.0,
+      "t1": 0.0,
+      "t2": 0.0,
+      "crop_p": 1.0,
+      "n_samples_a": 0,
+      "n_samples_b": 0
+    },
+    {
+      "target": "subtle_ConstantTimeEq_32",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 3.5190283084330445,
+      "t1": 1.8790761477031355,
+      "t2": 3.5190283084330445,
+      "crop_p": 0.8,
+      "n_samples_a": 14920,
+      "n_samples_b": 15080
+    },
+    {
+      "target": "curve25519_dalek_scalar_mul",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 49.27589274658377,
+      "t1": 2.6521510683611305,
+      "t2": 49.27589274658377,
+      "crop_p": 0.8,
+      "n_samples_a": 14952,
+      "n_samples_b": 15048
+    },
+    {
+      "target": "aes_block_encrypt",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 6.949546378897305,
+      "t1": 0.6728031597875928,
+      "t2": 6.949546378897305,
+      "crop_p": 0.6,
+      "n_samples_a": 14941,
+      "n_samples_b": 15059
+    },
+    {
+      "target": "sha2_256_secret",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 17.941177438186976,
+      "t1": 3.3607481930038414,
+      "t2": 17.941177438186976,
+      "crop_p": 0.8,
+      "n_samples_a": 14921,
+      "n_samples_b": 15079
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 444369.3224830887,
+      "t1": 444369.3224830887,
+      "t2": 1547.64282431025,
+      "crop_p": 0.5,
+      "n_samples_a": 14969,
+      "n_samples_b": 15031
+    },
+    {
+      "target": "naive_pkeq_eq",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 6525.762401834673,
+      "t1": 6525.762401834673,
+      "t2": 728.1008001241095,
+      "crop_p": 0.8,
+      "n_samples_a": 15074,
+      "n_samples_b": 14926
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": false,
+      "t_stat": 6.425186779165509,
+      "t1": 2.4628599009557073,
+      "t2": 6.425186779165509,
+      "crop_p": 0.5,
+      "n_samples_a": 15025,
+      "n_samples_b": 14975
+    },
+    {
+      "target": "num_bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 937.9938619274512,
+      "t1": 937.9938619274512,
+      "t2": 170.62718405563882,
+      "crop_p": 0.5,
+      "n_samples_a": 14970,
+      "n_samples_b": 15030
+    },
+    {
+      "target": "ring_constant_time_verify",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 43.826554573894406,
+      "t1": 9.043480782676179,
+      "t2": 43.826554573894406,
+      "crop_p": 0.95,
+      "n_samples_a": 15056,
+      "n_samples_b": 14944
+    },
+    {
+      "target": "ring_aes128gcm_seal_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 66.2279565774937,
+      "t1": 7.595092456658261,
+      "t2": 66.2279565774937,
+      "crop_p": 0.95,
+      "n_samples_a": 14902,
+      "n_samples_b": 15098
+    },
+    {
+      "target": "ring_aes128gcm_open_invalid_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 19.0164350438629,
+      "t1": 6.793072498661105,
+      "t2": 19.0164350438629,
+      "crop_p": 0.95,
+      "n_samples_a": 14955,
+      "n_samples_b": 15045
+    },
+    {
+      "target": "ring_ed25519_sign_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 15.492325235556619,
+      "t1": 3.2932985625875233,
+      "t2": 15.492325235556619,
+      "crop_p": 0.8,
+      "n_samples_a": 14980,
+      "n_samples_b": 15020
+    }
+  ],
+  "metrics": {
+    "tp": 7,
+    "fp": 7,
+    "tn": 2,
+    "fn": 0,
+    "precision": 0.5,
+    "recall": 1.0,
+    "f1": 0.6666666666666666,
+    "afi": 2.0,
+    "flagged_unknown": 7,
+    "total_unknown": 10,
+    "excluded_microarch": 2
+  }
+}

@@ -1,0 +1,332 @@
+{
+  "run_id": "production2",
+  "ts": 1777747804.4057784,
+  "config": {
+    "samples": 30000,
+    "threshold": 8.0,
+    "lang": "go,rust"
+  },
+  "verdicts": [
+    {
+      "target": "subtle_ConstantTimeCompare_32",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 75.85533999916866,
+      "t1": 8.871072475248141,
+      "t2": 75.85533999916866,
+      "crop_p": 0.9,
+      "n_samples_a": 15120,
+      "n_samples_b": 14880
+    },
+    {
+      "target": "subtle_ConstantTimeCopy_32",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 108.12407370939593,
+      "t1": 3.0654825786040556,
+      "t2": 108.12407370939593,
+      "crop_p": 0.9,
+      "n_samples_a": 15011,
+      "n_samples_b": 14989
+    },
+    {
+      "target": "curve25519_X25519",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 5.958121038113021,
+      "t1": 1.5909544142059726,
+      "t2": 5.958121038113021,
+      "crop_p": 0.8,
+      "n_samples_a": 15031,
+      "n_samples_b": 14969
+    },
+    {
+      "target": "edwards25519_ScalarBaseMult",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 66.46273529636943,
+      "t1": 2.3620404948834466,
+      "t2": 66.46273529636943,
+      "crop_p": 0.8,
+      "n_samples_a": 15027,
+      "n_samples_b": 14973
+    },
+    {
+      "target": "sha256_secret",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 34.94664741344434,
+      "t1": 1.4198084122529,
+      "t2": 34.94664741344434,
+      "crop_p": 0.9,
+      "n_samples_a": 15028,
+      "n_samples_b": 14972
+    },
+    {
+      "target": "bytes_Equal_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 1114.9278352567344,
+      "t1": 1114.9278352567344,
+      "t2": 73.0233074540288,
+      "crop_p": 0.8,
+      "n_samples_a": 14942,
+      "n_samples_b": 15058
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 325414.3164346055,
+      "t1": 325414.3164346055,
+      "t2": 207.3799362714092,
+      "crop_p": 0.5,
+      "n_samples_a": 15011,
+      "n_samples_b": 14989
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": false,
+      "t_stat": 5.313152509379451,
+      "t1": 2.662088890395845,
+      "t2": 5.313152509379451,
+      "crop_p": 0.9,
+      "n_samples_a": 14974,
+      "n_samples_b": 15026
+    },
+    {
+      "target": "bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 478.87677219527524,
+      "t1": 478.87677219527524,
+      "t2": 28.017918048258213,
+      "crop_p": 0.5,
+      "n_samples_a": 15013,
+      "n_samples_b": 14987
+    },
+    {
+      "target": "elliptic_P256_ScalarBaseMult",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 15.79361867052169,
+      "t1": 2.89688550786588,
+      "t2": 15.79361867052169,
+      "crop_p": 0.9,
+      "n_samples_a": 15010,
+      "n_samples_b": 14990
+    },
+    {
+      "target": "rsa_decrypt_unblinded",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 695.0089776664518,
+      "t1": 76.22950176857272,
+      "t2": 695.0089776664518,
+      "crop_p": 0.5,
+      "n_samples_a": 14975,
+      "n_samples_b": 15025
+    },
+    {
+      "target": "rsa_decrypt_blinded",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 749.44249574334,
+      "t1": 85.09674043526041,
+      "t2": 749.44249574334,
+      "crop_p": 0.5,
+      "n_samples_a": 14945,
+      "n_samples_b": 15055
+    },
+    {
+      "target": "aes128gcm_seal_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 19.47499328833329,
+      "t1": 4.197600173626277,
+      "t2": 19.47499328833329,
+      "crop_p": 0.5,
+      "n_samples_a": 14972,
+      "n_samples_b": 15028
+    },
+    {
+      "target": "aes128gcm_open_invalid_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 10.753942615434601,
+      "t1": 1.205711244844539,
+      "t2": 10.753942615434601,
+      "crop_p": 0.5,
+      "n_samples_a": 15004,
+      "n_samples_b": 14996
+    },
+    {
+      "target": "ed25519_sign_vary_key",
+      "label": "production",
+      "flagged": false,
+      "t_stat": 5.449297222732289,
+      "t1": 0.9780764290724443,
+      "t2": 5.449297222732289,
+      "crop_p": 0.8,
+      "n_samples_a": 15022,
+      "n_samples_b": 14978
+    },
+    {
+      "target": "ecdsa_p256_sign_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 8.267153113689643,
+      "t1": 4.615885147640159,
+      "t2": 8.267153113689643,
+      "crop_p": 0.8,
+      "n_samples_a": 14987,
+      "n_samples_b": 15013
+    },
+    {
+      "target": "subtle_ConstantTimeEq_32",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 10.341464263917004,
+      "t1": 2.073293696922228,
+      "t2": 10.341464263917004,
+      "crop_p": 0.8,
+      "n_samples_a": 15063,
+      "n_samples_b": 14937
+    },
+    {
+      "target": "curve25519_dalek_scalar_mul",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 45.66110692617335,
+      "t1": 2.725208001361697,
+      "t2": 45.66110692617335,
+      "crop_p": 0.9,
+      "n_samples_a": 15068,
+      "n_samples_b": 14932
+    },
+    {
+      "target": "aes_block_encrypt",
+      "label": "ct",
+      "flagged": true,
+      "t_stat": 19.73207102796223,
+      "t1": 2.9717312135533214,
+      "t2": 19.73207102796223,
+      "crop_p": 0.5,
+      "n_samples_a": 15049,
+      "n_samples_b": 14951
+    },
+    {
+      "target": "sha2_256_secret",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 1.9100394349742458,
+      "t1": 1.9100394349742458,
+      "t2": 1.2866263018294017,
+      "crop_p": 0.8,
+      "n_samples_a": 15000,
+      "n_samples_b": 15000
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 663157.5082477563,
+      "t1": 663157.5082477563,
+      "t2": 761.7741731786454,
+      "crop_p": 0.5,
+      "n_samples_a": 15016,
+      "n_samples_b": 14984
+    },
+    {
+      "target": "naive_pkeq_eq",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 6167.159998523732,
+      "t1": 6167.159998523732,
+      "t2": 626.9197046689607,
+      "crop_p": 0.9,
+      "n_samples_a": 14998,
+      "n_samples_b": 15002
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": true,
+      "t_stat": 9.197693452554681,
+      "t1": 2.770056849933317,
+      "t2": 9.197693452554681,
+      "crop_p": 0.8,
+      "n_samples_a": 14895,
+      "n_samples_b": 15105
+    },
+    {
+      "target": "num_bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 953.2648014601829,
+      "t1": 953.2648014601829,
+      "t2": 194.72887911853934,
+      "crop_p": 0.5,
+      "n_samples_a": 15019,
+      "n_samples_b": 14981
+    },
+    {
+      "target": "ring_constant_time_verify",
+      "label": "unknown",
+      "flagged": false,
+      "t_stat": 5.331741127424694,
+      "t1": 1.4103456943109882,
+      "t2": 5.331741127424694,
+      "crop_p": 0.6,
+      "n_samples_a": 15012,
+      "n_samples_b": 14988
+    },
+    {
+      "target": "ring_aes128gcm_seal_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 96.96391799259052,
+      "t1": 5.165850251266338,
+      "t2": 96.96391799259052,
+      "crop_p": 0.97,
+      "n_samples_a": 15019,
+      "n_samples_b": 14981
+    },
+    {
+      "target": "ring_aes128gcm_open_invalid_vary_key",
+      "label": "production",
+      "flagged": true,
+      "t_stat": 409.19453417024107,
+      "t1": 9.679699079886602,
+      "t2": 409.19453417024107,
+      "crop_p": 0.97,
+      "n_samples_a": 14893,
+      "n_samples_b": 15107
+    },
+    {
+      "target": "ring_ed25519_sign_vary_key",
+      "label": "production",
+      "flagged": false,
+      "t_stat": 7.842112272509934,
+      "t1": 1.0305733978341092,
+      "t2": 7.842112272509934,
+      "crop_p": 0.9,
+      "n_samples_a": 14877,
+      "n_samples_b": 15123
+    }
+  ],
+  "metrics": {
+    "tp": 7,
+    "fp": 7,
+    "tn": 2,
+    "fn": 0,
+    "precision": 0.5,
+    "recall": 1.0,
+    "f1": 0.6666666666666666,
+    "afi": 2.0,
+    "flagged_unknown": 7,
+    "total_unknown": 10,
+    "excluded_microarch": 2
+  }
+}

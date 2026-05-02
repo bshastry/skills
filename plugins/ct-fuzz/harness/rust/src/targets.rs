@@ -7,6 +7,8 @@ use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use num_bigint::BigUint;
 use num_traits::Zero;
+use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_128_GCM};
+use ring::signature::Ed25519KeyPair;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -165,6 +167,76 @@ pub fn register_all() -> Vec<(&'static str, TargetSpec)> {
             func: Box::new(|pub_, sec| {
                 let _ = ring::constant_time::verify_slices_are_equal(pub_, sec);
                 touch(0);
+            }),
+        },
+    ));
+
+    // ---------- Production: ring AEAD and signatures, vary the key ----------
+
+    // ring AES-128-GCM seal — varying 16-byte key. Uses ring's optimized AES
+    // (AES-NI on supporting CPUs). Stack-allocated buffer + separate-tag API
+    // to keep the heap allocator out of the timed region.
+    v.push((
+        "ring_aes128gcm_seal_vary_key",
+        TargetSpec {
+            secret_len: 16,
+            public_len: 0,
+            inner: 5,
+            func: Box::new(|_pub, sec| {
+                let unbound = match UnboundKey::new(&AES_128_GCM, sec) {
+                    Ok(k) => k,
+                    Err(_) => return,
+                };
+                let key = LessSafeKey::new(unbound);
+                let nonce = Nonce::assume_unique_for_key([0u8; 12]);
+                let mut buf = [0xAAu8; 64];
+                if key
+                    .seal_in_place_separate_tag(nonce, Aad::empty(), &mut buf)
+                    .is_ok()
+                {
+                    touch(buf[0] as u64);
+                }
+            }),
+        },
+    ));
+
+    // ring AES-128-GCM open with bogus tag — varying key. Tests the failure path.
+    // Stack-allocated 80-byte buffer (64 ciphertext + 16 tag).
+    v.push((
+        "ring_aes128gcm_open_invalid_vary_key",
+        TargetSpec {
+            secret_len: 16,
+            public_len: 0,
+            inner: 5,
+            func: Box::new(|_pub, sec| {
+                let unbound = match UnboundKey::new(&AES_128_GCM, sec) {
+                    Ok(k) => k,
+                    Err(_) => return,
+                };
+                let key = LessSafeKey::new(unbound);
+                let nonce = Nonce::assume_unique_for_key([0u8; 12]);
+                let mut buf = [0xAAu8; 80];
+                let _ = key.open_in_place(nonce, Aad::empty(), &mut buf);
+                touch(buf[0] as u64);
+            }),
+        },
+    ));
+
+    // ring Ed25519 sign — varying 32-byte private seed. Production signature API.
+    v.push((
+        "ring_ed25519_sign_vary_key",
+        TargetSpec {
+            secret_len: 32,
+            public_len: 0,
+            inner: 1,
+            func: Box::new(|_pub, sec| {
+                let kp = match Ed25519KeyPair::from_seed_unchecked(sec) {
+                    Ok(k) => k,
+                    Err(_) => return,
+                };
+                let msg = [0xAAu8; 64];
+                let sig = kp.sign(&msg);
+                touch(sig.as_ref()[0] as u64);
             }),
         },
     ));

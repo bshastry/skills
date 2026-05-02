@@ -12,7 +12,11 @@
     {"target": "bigint_mod_secret", "label": "leaky", "rationale": "math/big.Int.Mod uses variable-time division"},
     {"target": "elliptic_P256_ScalarBaseMult", "label": "unknown", "rationale": "Go 1.18+ uses constant-time nistec; older was variable-time"},
     {"target": "rsa_decrypt_unblinded", "label": "leaky", "rationale": "rsa.DecryptPKCS1v15 with rng=nil disables blinding — known variable-time"},
-    {"target": "rsa_decrypt_blinded", "label": "unknown", "rationale": "rsa.DecryptPKCS1v15 with blinding; expected to leak about ciphertext (public) but not key — fp-check decides security relevance"}
+    {"target": "rsa_decrypt_blinded", "label": "unknown", "rationale": "rsa.DecryptPKCS1v15 with blinding; expected to leak about ciphertext (public) but not key — fp-check decides security relevance"},
+    {"target": "aes128gcm_seal_vary_key", "label": "production", "rationale": "stdlib crypto/aes + crypto/cipher.NewGCM seal; varying 16-byte AES key. Real public AEAD API. Expected CT via AES-NI."},
+    {"target": "aes128gcm_open_invalid_vary_key", "label": "production", "rationale": "stdlib AES-128-GCM open with random ciphertext+tag (will fail auth); varying key. Tests Bleichenbacher-class failure-path leakage."},
+    {"target": "ed25519_sign_vary_key", "label": "production", "rationale": "stdlib crypto/ed25519.Sign; varying 32-byte private seed. Real public signature API. Expected CT (SHA-512 + edwards25519 scalar mult)."},
+    {"target": "ecdsa_p256_sign_vary_key", "label": "production", "rationale": "stdlib crypto/ecdsa.SignASN1 on P-256; varying 32-byte private scalar. Real public signature API. Modern Go uses constant-time nistec."}
   ],
   "rust": [
     {"target": "subtle_ConstantTimeEq_32", "label": "ct", "rationale": "subtle crate, designed to be constant-time"},
@@ -23,6 +27,9 @@
     {"target": "naive_pkeq_eq", "label": "leaky", "rationale": "PartialEq on byte arrays via std == — early exit"},
     {"target": "table_lookup_secret_index", "label": "microarch", "rationale": "256-entry table fits in L1; dudect cannot resolve sub-line cache effects"},
     {"target": "num_bigint_mod_secret", "label": "leaky", "rationale": "num-bigint variable-time mod"},
-    {"target": "ring_constant_time_verify", "label": "unknown", "rationale": "ring::constant_time::verify_slices_are_equal — production target"}
+    {"target": "ring_constant_time_verify", "label": "unknown", "rationale": "ring::constant_time::verify_slices_are_equal — production target"},
+    {"target": "ring_aes128gcm_seal_vary_key", "label": "production", "rationale": "ring::aead::LessSafeKey::seal_in_place_append_tag with AES_128_GCM; varying 16-byte key. Real production AEAD API used by rustls."},
+    {"target": "ring_aes128gcm_open_invalid_vary_key", "label": "production", "rationale": "ring::aead::LessSafeKey::open_in_place with bogus tag; varying key. Failure-path timing test."},
+    {"target": "ring_ed25519_sign_vary_key", "label": "production", "rationale": "ring::signature::Ed25519KeyPair::sign; varying 32-byte private seed. Production signature API."}
   ]
 }

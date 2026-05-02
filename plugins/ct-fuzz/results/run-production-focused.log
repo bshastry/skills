@@ -1,0 +1,37 @@
+
+--- repeat 1/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    2.05
+  aes128gcm_open_invalid_vary_key             |t1|=    1.18
+  ed25519_sign_vary_key                       |t1|=    1.02
+  ecdsa_p256_sign_vary_key                    |t1|=    1.48
+  ring_aes128gcm_seal_vary_key                |t1|=    6.44
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    6.70
+  ring_ed25519_sign_vary_key                  |t1|=    5.24
+
+--- repeat 2/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    2.33
+  aes128gcm_open_invalid_vary_key             |t1|=    1.63
+  ed25519_sign_vary_key                       |t1|=    0.78
+  ecdsa_p256_sign_vary_key                    |t1|=    0.67
+  ring_aes128gcm_seal_vary_key                |t1|=   16.09
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    6.77
+  ring_ed25519_sign_vary_key                  |t1|=    2.29
+
+--- repeat 3/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    0.65
+  aes128gcm_open_invalid_vary_key             |t1|=    0.73
+  ed25519_sign_vary_key                       |t1|=    2.20
+  ecdsa_p256_sign_vary_key                    |t1|=    1.13
+  ring_aes128gcm_seal_vary_key                |t1|=   14.98
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    7.47
+  ring_ed25519_sign_vary_key                  |t1|=    1.60
+
+=== production targets, 3 repeats, SO=off, threshold=8 ===
+target                                          mean       min       max  n>8
+aes128gcm_seal_vary_key                         1.68      0.65      2.33  0/3  CT  
+aes128gcm_open_invalid_vary_key                 1.18      0.73      1.63  0/3  CT  
+ed25519_sign_vary_key                           1.34      0.78      2.20  0/3  CT  
+ecdsa_p256_sign_vary_key                        1.09      0.67      1.48  0/3  CT  
+ring_aes128gcm_seal_vary_key                   12.50      6.44     16.09  2/3  LEAK
+ring_aes128gcm_open_invalid_vary_key            6.98      6.70      7.47  0/3  CT  
+ring_ed25519_sign_vary_key                      3.04      1.60      5.24  0/3  CT  

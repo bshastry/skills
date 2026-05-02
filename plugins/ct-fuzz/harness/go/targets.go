@@ -8,7 +8,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -141,6 +146,95 @@ func registerAll() {
 		h := sha256.Sum256(sec)
 		sink += uint64(h[0])
 	})
+
+	// ---------- Production targets: vary the KEY, fixed plaintext/message ----------
+	// These are the public APIs production Go code calls for AEAD and signatures.
+	// Threat model: attacker submits chosen plaintexts/messages (held fixed
+	// across our test) and observes wall-clock latency; we ask whether timing
+	// depends on the secret key.
+
+	// AES-128-GCM seal — varying 16-byte AES key.
+	{
+		nonce := make([]byte, 12) // fixed all-zeros
+		pt := bytes.Repeat([]byte{0xAA}, 64)
+		dst := make([]byte, 0, 80) // 64 bytes pt + 16 bytes tag
+		register("aes128gcm_seal_vary_key", 16, 0, 5, func(pub, sec []byte) {
+			_ = pub
+			block, err := aes.NewCipher(sec)
+			if err != nil {
+				return
+			}
+			gcm, err := cipher.NewGCM(block)
+			if err != nil {
+				return
+			}
+			ct := gcm.Seal(dst[:0], nonce, pt, nil)
+			sink += uint64(ct[0])
+		})
+	}
+
+	// AES-128-GCM open with bogus tag — varying key. Always fails authentication.
+	// Tests whether the failure-path timing leaks the key (Bleichenbacher-class).
+	{
+		nonce := make([]byte, 12)
+		bogusCt := bytes.Repeat([]byte{0xAA}, 80) // 64-byte payload + 16-byte tag
+		dst := make([]byte, 0, 64)
+		register("aes128gcm_open_invalid_vary_key", 16, 0, 5, func(pub, sec []byte) {
+			_ = pub
+			block, err := aes.NewCipher(sec)
+			if err != nil {
+				return
+			}
+			gcm, err := cipher.NewGCM(block)
+			if err != nil {
+				return
+			}
+			out, err := gcm.Open(dst[:0], nonce, bogusCt, nil)
+			if err == nil && len(out) > 0 {
+				sink += uint64(out[0])
+			}
+		})
+	}
+
+	// Ed25519 sign — varying 32-byte private seed. Sign expands the seed via
+	// SHA-512 internally and runs scalar mult on the basepoint. Both should be CT.
+	{
+		msg := bytes.Repeat([]byte{0xAA}, 64)
+		register("ed25519_sign_vary_key", 32, 0, 1, func(pub, sec []byte) {
+			_ = pub
+			priv := ed25519.NewKeyFromSeed(sec)
+			sig := ed25519.Sign(priv, msg)
+			sink += uint64(sig[0])
+		})
+	}
+
+	// ECDSA P-256 sign — varying 32-byte private scalar. Modern Go (1.18+) uses
+	// crypto/internal/nistec for constant-time scalar mult. Pre-1.18 was variable-
+	// time and exploitable. SignASN1 requires PublicKey.X/Y so we derive via
+	// ScalarBaseMult — this means each call performs two scalar mults (key
+	// derivation + sign), modeling the key-import-then-sign pipeline.
+	{
+		hash := bytes.Repeat([]byte{0xAA}, 32)
+		register("ecdsa_p256_sign_vary_key", 32, 0, 1, func(pub, sec []byte) {
+			_ = pub
+			// Clamp to ensure D in [1, N-1].
+			var d [32]byte
+			copy(d[:], sec)
+			d[0] &= 0x7F
+			if d == ([32]byte{}) {
+				d[31] = 1
+			}
+			x, y := elliptic.P256().ScalarBaseMult(d[:])
+			priv := &ecdsa.PrivateKey{
+				PublicKey: ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y},
+				D:         new(big.Int).SetBytes(d[:]),
+			}
+			sig, err := ecdsa.SignASN1(rand.Reader, priv, hash)
+			if err == nil && len(sig) > 0 {
+				sink += uint64(sig[0])
+			}
+		})
+	}
 }
 
 // loadRSAKey returns a fresh 2048-bit RSA key generated at startup.
