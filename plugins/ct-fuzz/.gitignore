@@ -1,0 +1,6 @@
+harness/rust/target/
+harness/rust/Cargo.lock
+ct-fuzz-go
+ct-fuzz-rust
+__pycache__/
+*.pyc

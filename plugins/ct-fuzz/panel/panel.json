@@ -1,0 +1,28 @@
+{
+  "_comment": "Labeled panel for ct-fuzz iteration. label = ct | leaky | unknown. ct/leaky targets ground precision/recall; unknown targets are production-of-interest.",
+  "go": [
+    {"target": "subtle_ConstantTimeCompare_32", "label": "ct", "rationale": "documented constant-time comparison"},
+    {"target": "subtle_ConstantTimeCopy_32", "label": "ct", "rationale": "documented constant-time copy; dst preallocated outside timed region"},
+    {"target": "curve25519_X25519", "label": "ct", "rationale": "Curve25519 X25519 in golang.org/x/crypto is constant-time by design"},
+    {"target": "edwards25519_ScalarBaseMult", "label": "ct", "rationale": "filippo.io/edwards25519 is constant-time"},
+    {"target": "sha256_secret", "label": "ct", "rationale": "SHA-256 with fixed-length input has data-independent timing"},
+    {"target": "bytes_Equal_32", "label": "leaky", "rationale": "early-exit on first mismatch"},
+    {"target": "naive_eq_32", "label": "leaky", "rationale": "explicit early-exit byte loop"},
+    {"target": "table_lookup_secret_index", "label": "microarch", "rationale": "256-entry table fits in L1; dudect cannot resolve sub-line cache effects — out of scope"},
+    {"target": "bigint_mod_secret", "label": "leaky", "rationale": "math/big.Int.Mod uses variable-time division"},
+    {"target": "elliptic_P256_ScalarBaseMult", "label": "unknown", "rationale": "Go 1.18+ uses constant-time nistec; older was variable-time"},
+    {"target": "rsa_decrypt_unblinded", "label": "leaky", "rationale": "rsa.DecryptPKCS1v15 with rng=nil disables blinding — known variable-time"},
+    {"target": "rsa_decrypt_blinded", "label": "unknown", "rationale": "rsa.DecryptPKCS1v15 with blinding; expected to leak about ciphertext (public) but not key — fp-check decides security relevance"}
+  ],
+  "rust": [
+    {"target": "subtle_ConstantTimeEq_32", "label": "ct", "rationale": "subtle crate, designed to be constant-time"},
+    {"target": "curve25519_dalek_scalar_mul", "label": "ct", "rationale": "curve25519-dalek scalar mult is constant-time"},
+    {"target": "aes_block_encrypt", "label": "ct", "rationale": "RustCrypto aes uses bit-sliced/AES-NI when available"},
+    {"target": "sha2_256_secret", "label": "ct", "rationale": "SHA-256 fixed-length"},
+    {"target": "naive_eq_32", "label": "leaky", "rationale": "early-exit slice compare"},
+    {"target": "naive_pkeq_eq", "label": "leaky", "rationale": "PartialEq on byte arrays via std == — early exit"},
+    {"target": "table_lookup_secret_index", "label": "microarch", "rationale": "256-entry table fits in L1; dudect cannot resolve sub-line cache effects"},
+    {"target": "num_bigint_mod_secret", "label": "leaky", "rationale": "num-bigint variable-time mod"},
+    {"target": "ring_constant_time_verify", "label": "unknown", "rationale": "ring::constant_time::verify_slices_are_equal — production target"}
+  ]
+}

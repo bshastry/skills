@@ -1,0 +1,6 @@
+{
+  "name": "ct-fuzz",
+  "version": "0.1.0",
+  "description": "Dudect-style timing-leak fuzzer that flags non-constant-time crypto code in Go and Rust by statistical analysis of wall-clock timings.",
+  "author": "Trail of Bits"
+}

@@ -1,0 +1,14 @@
+[project]
+name = "ct-fuzz"
+version = "0.1.0"
+description = "dudect-style timing-leak fuzzer for Go and Rust crypto"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ct_fuzz*"]

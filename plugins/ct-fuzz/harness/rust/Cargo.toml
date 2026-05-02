@@ -1,0 +1,24 @@
+[package]
+name = "ctfuzz-rust"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ctfuzz-rust"
+path = "src/main.rs"
+
+[dependencies]
+subtle = "2.6"
+sha2 = "0.10"
+aes = "0.8"
+curve25519-dalek = { version = "4.1", features = ["digest", "legacy_compatibility"] }
+num-bigint = "0.4"
+num-traits = "0.2"
+ring = "0.17"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = false
+codegen-units = 1
+debug = false

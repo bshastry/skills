@@ -1,0 +1,255 @@
+{
+  "run_id": "final-go-rust",
+  "ts": 1777736314.2712255,
+  "config": {
+    "samples": 30000,
+    "threshold": 8.0,
+    "lang": "go,rust"
+  },
+  "verdicts": [
+    {
+      "target": "subtle_ConstantTimeCompare_32",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 7.670059043206971,
+      "t1": 1.4930542974315135,
+      "t2": 7.670059043206971,
+      "crop_p": 0.9,
+      "n_samples_a": 15064,
+      "n_samples_b": 14936
+    },
+    {
+      "target": "subtle_ConstantTimeCopy_32",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 5.002433605463195,
+      "t1": 5.002433605463195,
+      "t2": 1.9761383279161346,
+      "crop_p": 0.6,
+      "n_samples_a": 15090,
+      "n_samples_b": 14910
+    },
+    {
+      "target": "curve25519_X25519",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 3.6648468528888496,
+      "t1": 2.839972879096447,
+      "t2": 3.6648468528888496,
+      "crop_p": 0.6,
+      "n_samples_a": 15031,
+      "n_samples_b": 14969
+    },
+    {
+      "target": "edwards25519_ScalarBaseMult",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 2.852018928223432,
+      "t1": 2.852018928223432,
+      "t2": 2.1341805913527114,
+      "crop_p": 0.5,
+      "n_samples_a": 14938,
+      "n_samples_b": 15062
+    },
+    {
+      "target": "sha256_secret",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 2.307984575787319,
+      "t1": 2.307984575787319,
+      "t2": 1.3523289516237613,
+      "crop_p": 0.5,
+      "n_samples_a": 15090,
+      "n_samples_b": 14910
+    },
+    {
+      "target": "bytes_Equal_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 253.78914107562795,
+      "t1": 253.78914107562795,
+      "t2": 59.33700874233459,
+      "crop_p": 0.5,
+      "n_samples_a": 14931,
+      "n_samples_b": 15069
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 1495.1579945266317,
+      "t1": 1495.1579945266317,
+      "t2": 162.20976650285172,
+      "crop_p": 0.5,
+      "n_samples_a": 15088,
+      "n_samples_b": 14912
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": false,
+      "t_stat": 1.5799327236349676,
+      "t1": 0.5921732213719689,
+      "t2": 1.5799327236349676,
+      "crop_p": 0.8,
+      "n_samples_a": 15090,
+      "n_samples_b": 14910
+    },
+    {
+      "target": "bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 238.30248081674858,
+      "t1": 238.30248081674858,
+      "t2": 59.167214586889855,
+      "crop_p": 0.5,
+      "n_samples_a": 15073,
+      "n_samples_b": 14927
+    },
+    {
+      "target": "elliptic_P256_ScalarBaseMult",
+      "label": "unknown",
+      "flagged": false,
+      "t_stat": 2.063747279917832,
+      "t1": 0.64018906884865,
+      "t2": 2.063747279917832,
+      "crop_p": 0.8,
+      "n_samples_a": 14902,
+      "n_samples_b": 15098
+    },
+    {
+      "target": "rsa_decrypt_unblinded",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 112.369786105072,
+      "t1": 112.369786105072,
+      "t2": 108.46225651815291,
+      "crop_p": 0.5,
+      "n_samples_a": 15097,
+      "n_samples_b": 14903
+    },
+    {
+      "target": "rsa_decrypt_blinded",
+      "label": "unknown",
+      "flagged": true,
+      "t_stat": 112.52686297192294,
+      "t1": 112.52686297192294,
+      "t2": 107.87418680339711,
+      "crop_p": 0.5,
+      "n_samples_a": 14971,
+      "n_samples_b": 15029
+    },
+    {
+      "target": "subtle_ConstantTimeEq_32",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 2.09695128905382,
+      "t1": 0.7607254073099953,
+      "t2": 2.09695128905382,
+      "crop_p": 0.5,
+      "n_samples_a": 15200,
+      "n_samples_b": 14800
+    },
+    {
+      "target": "curve25519_dalek_scalar_mul",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 3.404690501004541,
+      "t1": 3.404690501004541,
+      "t2": 2.6915573678643843,
+      "crop_p": 0.5,
+      "n_samples_a": 14998,
+      "n_samples_b": 15002
+    },
+    {
+      "target": "aes_block_encrypt",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 5.205512990138189,
+      "t1": 3.235890482475994,
+      "t2": 5.205512990138189,
+      "crop_p": 0.8,
+      "n_samples_a": 14831,
+      "n_samples_b": 15169
+    },
+    {
+      "target": "sha2_256_secret",
+      "label": "ct",
+      "flagged": false,
+      "t_stat": 1.7355492947702922,
+      "t1": 1.7355492947702922,
+      "t2": 1.1224054019107832,
+      "crop_p": 0.5,
+      "n_samples_a": 15022,
+      "n_samples_b": 14978
+    },
+    {
+      "target": "naive_eq_32",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 1056.1784626442027,
+      "t1": 1056.1784626442027,
+      "t2": 129.63015764728615,
+      "crop_p": 0.5,
+      "n_samples_a": 14954,
+      "n_samples_b": 15046
+    },
+    {
+      "target": "naive_pkeq_eq",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 528.0940689073886,
+      "t1": 528.0940689073886,
+      "t2": 90.26265802755803,
+      "crop_p": 0.5,
+      "n_samples_a": 14909,
+      "n_samples_b": 15091
+    },
+    {
+      "target": "table_lookup_secret_index",
+      "label": "microarch",
+      "flagged": false,
+      "t_stat": 2.4050753016260638,
+      "t1": 1.0756766410510243,
+      "t2": 2.4050753016260638,
+      "crop_p": 0.9,
+      "n_samples_a": 15034,
+      "n_samples_b": 14966
+    },
+    {
+      "target": "num_bigint_mod_secret",
+      "label": "leaky",
+      "flagged": true,
+      "t_stat": 1199.6784407587909,
+      "t1": 1199.6784407587909,
+      "t2": 127.72243505140568,
+      "crop_p": 0.5,
+      "n_samples_a": 15028,
+      "n_samples_b": 14972
+    },
+    {
+      "target": "ring_constant_time_verify",
+      "label": "unknown",
+      "flagged": false,
+      "t_stat": 3.5308676008292075,
+      "t1": 0.9198287501317941,
+      "t2": 3.5308676008292075,
+      "crop_p": 0.9,
+      "n_samples_a": 14953,
+      "n_samples_b": 15047
+    }
+  ],
+  "metrics": {
+    "tp": 7,
+    "fp": 0,
+    "tn": 9,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "afi": 1.0,
+    "flagged_unknown": 1,
+    "total_unknown": 3,
+    "excluded_microarch": 2
+  }
+}

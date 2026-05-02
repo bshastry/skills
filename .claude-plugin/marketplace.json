@@ -67,6 +67,16 @@
       "source": "./plugins/constant-time-analysis"
     },
     {
+      "name": "ct-fuzz",
+      "version": "0.1.0",
+      "description": "Dudect-style timing-leak fuzzer for Go and Rust crypto — flags non-constant-time implementations by statistical wall-clock analysis",
+      "author": {
+        "name": "Trail of Bits",
+        "email": "opensource@trailofbits.com"
+      },
+      "source": "./plugins/ct-fuzz"
+    },
+    {
       "name": "culture-index",
       "version": "1.1.0",
       "description": "Interprets Culture Index survey results for individuals and teams",
