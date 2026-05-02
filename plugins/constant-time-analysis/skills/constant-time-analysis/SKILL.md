@@ -1,6 +1,6 @@
 ---
 name: constant-time-analysis
-description: Detects timing side-channel vulnerabilities in cryptographic code. Use when implementing or reviewing crypto code, encountering division on secrets, secret-dependent branches, or constant-time programming questions in C, C++, Go, Rust, Swift, Java, Kotlin, C#, PHP, JavaScript, TypeScript, Python, or Ruby.
+description: Detects timing side-channel vulnerabilities in cryptographic code with CPU-class-aware rules (legacy, modern-x86 with DOITM, modern-arm with DIT, embedded Cortex-M0/M3). Use when implementing or reviewing crypto code, encountering division/multiplication/FP arithmetic on secrets, secret-dependent branches, or constant-time programming questions in C, C++, Go, Rust, Swift, Java, Kotlin, C#, PHP, JavaScript, TypeScript, Python, or Ruby.
 ---
 
 # Constant-Time Analysis
@@ -145,15 +145,70 @@ export PATH="$HOME/.dotnet/tools:$PATH"
 
 See [references/vm-compiled.md](references/vm-compiled.md) for detailed setup instructions and troubleshooting.
 
+## CPU Profiles (`--cpu-profile`)
+
+Modern CPUs ship instruction-class mitigations (Intel DOITM, ARM DIT) that change which mnemonics are actually variable-time. Pick the profile that matches your deployment target:
+
+| Profile        | When to use                                                | Behavior                                                                    |
+| -------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `legacy`       | Worst-case / unknown deployment / pre-Ice Lake / pre-Zen3  | Strict — flags every documented variable-time op (default)                 |
+| `modern-x86`   | Intel Ice Lake+ or AMD Zen3+ with DOITM available          | Suppresses **integer** DIV when `CT_DOITM_ENABLED` is defined; keeps FP DIV |
+| `modern-arm`   | ARMv8.4+ with DIT bit                                      | Recognises `CT_ARM_DIT_ENABLED` for FP arith; **does not** suppress SDIV/UDIV |
+| `embedded`     | Cortex-M0 / Cortex-M3 / pre-ARMv6                          | Adds variable-time MUL detection (MUL/UMULL/SMULL/SMMUL on top of DIV)      |
+
+```bash
+# Strict mode (default)
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile legacy crypto.c
+
+# Optimistic — suppress INT DIV when DOITM is asserted
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile modern-x86 crypto.c
+
+# Catch Cortex-M variable-time MUL
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile embedded --arch arm crypto.c
+```
+
+## Source-Level Guard Macros
+
+The analyzer scans the source for `#define` of these macros and adjusts its rules:
+
+| Macro                  | Effect                                                           | When safe to assert                                      |
+| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| `CT_DOITM_ENABLED`     | Suppress INT DIV/IDIV under `--cpu-profile modern-x86`           | Process sets `IA32_UARCH_MISC_CTL[DOITM]` at startup     |
+| `CT_FTZ_DAZ`           | Suppress denormal-channel ERRORs on FP add/sub/mul               | Process sets MXCSR FTZ+DAZ (or `_MM_SET_FLUSH_ZERO_MODE`) |
+| `CT_ARM_DIT_ENABLED`   | (Reserved) — DIT does not cover SDIV/UDIV; minimal effect today  | Process sets `PSTATE.DIT`                                |
+| `CT_PUBLIC_DIVISOR`    | Suppress INT DIV alarms file-wide (developer asserts public divisor) | Every divisor in this TU is a known constant or non-secret |
+
+**Important:** these macros are *trust boundaries*. The analyzer cannot verify that the runtime actually sets the corresponding bits — using them is an explicit developer assertion that must be backed by the deployment configuration.
+
+## FP Denormal Channel
+
+FP add/sub/mul are **constant-time only when denormals are flushed** (FTZ + DAZ). Without those bits set, denormal operands trigger a microcode slow-path that leaks the magnitude of secret values. The analyzer flags `MULSS`, `ADDSS`, `MULSD`, `ADDSD`, `FADD`, `FMADD`, etc. unless `CT_FTZ_DAZ` is defined. **FP DIV and SQRT remain variable-time even with FTZ enabled** — those are flagged regardless.
+
 ## Quick Reference
 
-| Problem                | Detection                       | Fix                                          |
-| ---------------------- | ------------------------------- | -------------------------------------------- |
-| Division on secrets    | DIV, IDIV, SDIV, UDIV           | Barrett reduction or multiply-by-inverse     |
-| Branch on secrets      | JE, JNE, BEQ, BNE               | Constant-time selection (cmov, bit masking)  |
-| Secret comparison      | Early-exit memcmp               | Use `crypto/subtle` or constant-time compare |
-| Weak RNG               | rand(), mt_rand, Math.random    | Use crypto-secure RNG                        |
-| Table lookup by secret | Array subscript on secret index | Bit-sliced lookups                           |
+| Problem                          | Detection                              | Fix                                                          |
+| -------------------------------- | -------------------------------------- | ------------------------------------------------------------ |
+| Division on secrets              | DIV, IDIV, SDIV, UDIV                  | Barrett reduction or multiply-by-inverse                     |
+| FP division on secrets           | DIVSS, DIVSD, FDIV                     | Avoid; FP DIV is variable on every modern CPU                |
+| FP arithmetic without FTZ        | MULSS, ADDSS, FMUL, FADD               | Enable FTZ+DAZ, define `CT_FTZ_DAZ`                          |
+| MUL on Cortex-M0/M3              | MUL, UMULL, SMULL, SMMUL               | Use `--cpu-profile embedded`; replace with bitwise multiply  |
+| Branch on secrets                | JE, JNE, BEQ, BNE                      | Constant-time selection (cmov, bit masking)                  |
+| Secret comparison                | Early-exit memcmp/strcmp call          | Use `crypto/subtle` or constant-time compare                 |
+| Software-division helper call    | `__aeabi_idiv`, `__divdi3`             | Hardware DIV with appropriate target, or Barrett             |
+| Weak RNG                         | rand(), mt_rand, Math.random           | Use crypto-secure RNG                                        |
+
+## Measured Ground Truth (Optional)
+
+For high-assurance work, the skill ships a timing probe that empirically measures which instructions are variable-time on the host CPU:
+
+```bash
+# Build and run the probe
+cc -O2 -o {baseDir}/benchmark/measure/timing_probe \
+        {baseDir}/benchmark/measure/timing_probe.c -lm
+uv run {baseDir}/benchmark/measure/run_measurements.py
+```
+
+This produces `benchmark/measure/measured.json` describing which mnemonics show data-dependent timing on this hardware. The skill's CPU-profile rules are calibrated against measured behavior of representative CPUs — see `benchmark/METRIC.md` for the methodology.
 
 ## Interpreting Results
 

@@ -1,0 +1,203 @@
+{
+  "_comment": "Ground truth per benchmark case per CPU profile. For each case, 'expected_alarm' is true if the analyzer SHOULD raise an alarm (TP); false if it should NOT (TN). Mnemonics are checked liberally: any error-severity violation in the listed family counts.",
+  "_categories": {
+    "INT_DIV":  ["div", "idiv", "udiv", "sdiv", "divb", "divw", "divl", "divq", "idivb", "idivw", "idivl", "idivq", "int_div_call"],
+    "FP_DIV":   ["divss", "divsd", "divps", "divpd", "vdivss", "vdivsd", "fdiv", "fdiv.s", "fdiv.d", "vdiv.f32", "vdiv.f64", "fdivs", "fp_div_call"],
+    "FP_SQRT":  ["sqrtss", "sqrtsd", "sqrtps", "sqrtpd", "vsqrtss", "vsqrtsd", "fsqrt", "fsqrt.s", "fsqrt.d", "vsqrt.f32", "vsqrt.f64", "fsqrts", "fsqrt_call"],
+    "FP_ARITH": ["addss", "addsd", "subss", "subsd", "mulss", "mulsd", "vaddss", "vaddsd", "vsubss", "vsubsd", "vmulss", "vmulsd", "vfmadd132ss", "vfmadd213ss", "vfmadd231ss", "vfmadd132sd", "vfmadd213sd", "vfmadd231sd", "fadd", "fsub", "fmul", "fmadd", "fmsub", "vadd.f32", "vsub.f32", "vmul.f32", "vmla.f32", "vfma.f32", "fp_arith_warn"],
+    "INT_MUL":  ["mul", "muls", "imul", "umull", "smull", "umlal", "smlal", "smmul", "smmla", "int_mul_emb"],
+    "BRANCH":   ["je", "jne", "jz", "jnz", "ja", "jae", "jb", "jbe", "jg", "jge", "jl", "jle", "b.eq", "b.ne", "beq", "bne", "cbz", "cbnz", "blt", "bgt", "bltu", "bgeu"],
+    "MEMCMP":   ["memcmp_call"]
+  },
+  "cases": {
+    "01_kyber_div_secret.c": {
+      "description": "Division by secret-derived value (KyberSlash)",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "02_div_public_const.c": {
+      "description": "Division by public compile-time constant (compiler usually folds, but FP risk)",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": false, "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": false, "category": "INT_DIV"}
+      }
+    },
+    "03_div_with_doitm.c": {
+      "description": "DIV with explicit DOITM annotation",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "04_fp_no_ftz.c": {
+      "description": "FP arithmetic on secret without FTZ — denormal channel",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "FP_ARITH"},
+        "modern-x86":  {"expected_alarm": true,  "category": "FP_ARITH"},
+        "modern-arm":  {"expected_alarm": true,  "category": "FP_ARITH"},
+        "embedded":    {"expected_alarm": true,  "category": "FP_ARITH"}
+      }
+    },
+    "05_fp_with_ftz.c": {
+      "description": "FP add/mul with FTZ enabled — CT",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "FP_ARITH"},
+        "modern-x86":  {"expected_alarm": false, "category": "FP_ARITH"},
+        "modern-arm":  {"expected_alarm": false, "category": "FP_ARITH"},
+        "embedded":    {"expected_alarm": false, "category": "FP_ARITH"}
+      }
+    },
+    "06_fp_div_with_ftz.c": {
+      "description": "FP division remains variable-time even with FTZ",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "FP_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "FP_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "FP_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "FP_DIV"}
+      }
+    },
+    "07_arm_sdiv_with_dit.c": {
+      "description": "SDIV on ARM is NOT covered by DIT",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "08_embedded_mul.c": {
+      "description": "MUL is variable-time on Cortex-M0/M3 only",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "INT_MUL"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_MUL"},
+        "modern-arm":  {"expected_alarm": false, "category": "INT_MUL"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_MUL"}
+      }
+    },
+    "09_safe_table.c": {
+      "description": "Pure XOR — no variable-time ops",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": false, "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": false, "category": "INT_DIV"}
+      }
+    },
+    "10_div_loop_counter.c": {
+      "description": "Public/public division — no secret",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": false, "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": false, "category": "INT_DIV"}
+      }
+    },
+    "11_fsqrt_secret.c": {
+      "description": "FSQRT on secret — variable-time on all profiles",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "FP_SQRT"},
+        "modern-x86":  {"expected_alarm": true,  "category": "FP_SQRT"},
+        "modern-arm":  {"expected_alarm": true,  "category": "FP_SQRT"},
+        "embedded":    {"expected_alarm": true,  "category": "FP_SQRT"}
+      }
+    },
+    "12_idiv_const_divisor.c": {
+      "description": "IDIV/MUL with public constant divisor — varies by ISA",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_MUL"}
+      }
+    },
+    "13_secret_branch.c": {
+      "description": "Branch on secret — should be WARNING not ERROR",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "BRANCH", "expected_warning": true},
+        "modern-x86":  {"expected_alarm": false, "category": "BRANCH", "expected_warning": true},
+        "modern-arm":  {"expected_alarm": false, "category": "BRANCH", "expected_warning": true},
+        "embedded":    {"expected_alarm": false, "category": "BRANCH", "expected_warning": true}
+      }
+    },
+    "14_safe_mask.c": {
+      "description": "Constant-time select via mask — no errors, no warnings",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "BRANCH"},
+        "modern-x86":  {"expected_alarm": false, "category": "BRANCH"},
+        "modern-arm":  {"expected_alarm": false, "category": "BRANCH"},
+        "embedded":    {"expected_alarm": false, "category": "BRANCH"}
+      }
+    },
+    "15_double_div_secret.c": {
+      "description": "DIVSD on secret",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "FP_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "FP_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "FP_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "FP_DIV"}
+      }
+    },
+    "16_doitm_wrong_arch.c": {
+      "description": "CT_DOITM_ENABLED on non-x86 must NOT suppress SDIV",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "17_ftz_sqrt_still_unsafe.c": {
+      "description": "CT_FTZ_DAZ must not suppress SQRT",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "FP_SQRT"},
+        "modern-x86":  {"expected_alarm": true,  "category": "FP_SQRT"},
+        "modern-arm":  {"expected_alarm": true,  "category": "FP_SQRT"},
+        "embedded":    {"expected_alarm": true,  "category": "FP_SQRT"}
+      }
+    },
+    "18_mixed_div.c": {
+      "description": "Mixed safe + unsafe divs in one function",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "19_mldsa_decompose.c": {
+      "description": "Real ML-DSA decompose with multiple DIVs",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": true,  "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": true,  "category": "INT_DIV"}
+      }
+    },
+    "20_safe_xor_chain.c": {
+      "description": "Pure XOR/AND/OR/SHIFT — must be silent",
+      "profiles": {
+        "legacy":      {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-x86":  {"expected_alarm": false, "category": "INT_DIV"},
+        "modern-arm":  {"expected_alarm": false, "category": "INT_DIV"},
+        "embedded":    {"expected_alarm": false, "category": "INT_DIV"}
+      }
+    },
+    "21_memcmp_secret.c": {
+      "description": "memcmp on secret bytes — must be flagged",
+      "profiles": {
+        "legacy":      {"expected_alarm": true,  "category": "MEMCMP"},
+        "modern-x86":  {"expected_alarm": true,  "category": "MEMCMP"},
+        "modern-arm":  {"expected_alarm": true,  "category": "MEMCMP"},
+        "embedded":    {"expected_alarm": true,  "category": "MEMCMP"}
+      }
+    }
+  }
+}

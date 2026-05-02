@@ -1,0 +1,610 @@
+{
+  "profiles": {
+    "legacy": {
+      "TP": 9,
+      "FP": 1,
+      "FN": 0,
+      "TN": 5,
+      "P": 0.9,
+      "R": 1.0,
+      "F1": 0.947,
+      "F0.5": 0.918,
+      "AD": 0.67,
+      "fatigue": 1.0,
+      "S": 0.918
+    },
+    "modern-x86": {
+      "TP": 7,
+      "FP": 2,
+      "FN": 0,
+      "TN": 6,
+      "P": 0.778,
+      "R": 1.0,
+      "F1": 0.875,
+      "F0.5": 0.814,
+      "AD": 0.6,
+      "fatigue": 1.0,
+      "S": 0.814
+    },
+    "modern-arm": {
+      "TP": 9,
+      "FP": 2,
+      "FN": 0,
+      "TN": 4,
+      "P": 0.818,
+      "R": 1.0,
+      "F1": 0.9,
+      "F0.5": 0.849,
+      "AD": 0.67,
+      "fatigue": 1.0,
+      "S": 0.849
+    },
+    "embedded": {
+      "TP": 8,
+      "FP": 2,
+      "FN": 2,
+      "TN": 3,
+      "P": 0.8,
+      "R": 0.8,
+      "F1": 0.8,
+      "F0.5": 0.8,
+      "AD": 0.6,
+      "fatigue": 1.0,
+      "S": 0.674
+    }
+  },
+  "per_case": {
+    "legacy": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "modern-x86": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "modern-arm": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "embedded": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 1,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    }
+  },
+  "macro_S": 0.814,
+  "iter": 2,
+  "note": "iter2: FP-arith denormal-risk + GT categories",
+  "timestamp": "2026-05-02T04:03:44.883914+00:00"
+}

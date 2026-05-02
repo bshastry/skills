@@ -46,6 +46,132 @@ class Severity(Enum):
     WARNING = "warning"
 
 
+# CPU profiles describe the *target deployment class*. Variable-time guarantees
+# on modern CPUs are conditional on architectural mode bits (DOITM / DIT) and
+# microarchitectural-state bits (FTZ / DAZ). The skill recognises explicit
+# guard macros in source code as evidence that the user has set those bits.
+#
+#   CT_DOITM_ENABLED       — Intel Ice Lake+ / AMD Zen3+ DOITM mode active
+#   CT_FTZ_DAZ             — MXCSR FTZ + DAZ enabled at function entry
+#   CT_ARM_DIT_ENABLED     — ARMv8.4 PSTATE.DIT bit set
+#
+# When a guard is present AND the profile permits, certain mnemonics are
+# suppressed. The mapping is intentionally conservative: ARM DIT does NOT
+# cover SDIV/UDIV (per ARM ARM), so we never suppress integer DIV on ARM.
+CPU_PROFILES = {
+    "legacy":      {"description": "pre-Ice Lake / pre-Zen3 / pre-DIT (default)"},
+    "modern-x86":  {"description": "Intel Ice Lake+ or AMD Zen3+ with DOITM available"},
+    "modern-arm":  {"description": "ARMv8.4+ with DIT bit"},
+    "embedded":    {"description": "Cortex-M0/M3 / variable-time MUL CPUs"},
+}
+
+# Multiplication mnemonics that are variable-time on tiny Cortex-M0/M3 cores
+# (and pre-ARMv6 cores). Cortex-M3 has 1-cycle MUL but its MULTI-WORD multiplies
+# (SMULL/UMULL) are still variable-time; Cortex-M0 even MUL is variable. We
+# enable these only on the 'embedded' profile, since modern A-profile / x86
+# multiplies are uniformly constant-time.
+EMBEDDED_MUL_INSTRUCTIONS = {
+    "arm": {
+        "mul":   "MUL has variable-time execution on Cortex-M0/M3",
+        "muls":  "MULS has variable-time execution on Cortex-M0/M3",
+        "umull": "UMULL has variable-time execution on Cortex-M0/M3",
+        "smull": "SMULL has variable-time execution on Cortex-M0/M3",
+        "umlal": "UMLAL has variable-time execution on Cortex-M0/M3",
+        "smlal": "SMLAL has variable-time execution on Cortex-M0/M3",
+        "smmul": "SMMUL has variable-time execution on Cortex-M0/M3",
+        "smmla": "SMMLA has variable-time execution on Cortex-M0/M3",
+    },
+}
+
+# Library / runtime helper functions whose call sites imply a variable-time
+# operation. These show up at -O0 or when the target lacks a hardware
+# instruction. The keys match the BARE symbol (no @PLT, no leading underscore
+# for AArch64). The value is the conceptual mnemonic family.
+HELPER_CALL_RULES = {
+    # libm — variable latency on denormals or large operands
+    "sqrtf":          ("FSQRT_CALL", "sqrtf libm call has variable latency"),
+    "sqrt":           ("FSQRT_CALL", "sqrt libm call has variable latency"),
+    "sqrtl":          ("FSQRT_CALL", "sqrtl libm call has variable latency"),
+    # ARM EABI software-division runtime (used when target lacks hw div)
+    "__aeabi_idiv":   ("INT_DIV_CALL", "__aeabi_idiv software division is variable-time"),
+    "__aeabi_uidiv":  ("INT_DIV_CALL", "__aeabi_uidiv software division is variable-time"),
+    "__aeabi_idivmod":  ("INT_DIV_CALL", "__aeabi_idivmod software division is variable-time"),
+    "__aeabi_uidivmod": ("INT_DIV_CALL", "__aeabi_uidivmod software division is variable-time"),
+    "__aeabi_ldivmod":  ("INT_DIV_CALL", "__aeabi_ldivmod software division is variable-time"),
+    "__aeabi_uldivmod": ("INT_DIV_CALL", "__aeabi_uldivmod software division is variable-time"),
+    # libgcc / compiler-rt soft-div (32-bit x86, RISC-V no-M, etc.)
+    "__divdi3":       ("INT_DIV_CALL", "__divdi3 soft-division is variable-time"),
+    "__udivdi3":      ("INT_DIV_CALL", "__udivdi3 soft-division is variable-time"),
+    "__divsi3":       ("INT_DIV_CALL", "__divsi3 soft-division is variable-time"),
+    "__udivsi3":      ("INT_DIV_CALL", "__udivsi3 soft-division is variable-time"),
+    "__moddi3":       ("INT_DIV_CALL", "__moddi3 soft-modulo is variable-time"),
+    "__umoddi3":      ("INT_DIV_CALL", "__umoddi3 soft-modulo is variable-time"),
+    # FP soft-div on no-FPU targets
+    "__divdf3":       ("FP_DIV_CALL", "__divdf3 soft-FP division is variable-time"),
+    "__divsf3":       ("FP_DIV_CALL", "__divsf3 soft-FP division is variable-time"),
+    # Memory comparisons that often early-exit
+    "memcmp":         ("MEMCMP_CALL", "memcmp early-exits and is not constant-time"),
+    "strcmp":         ("MEMCMP_CALL", "strcmp early-exits and is not constant-time"),
+    "strncmp":        ("MEMCMP_CALL", "strncmp early-exits and is not constant-time"),
+}
+
+# Source-level sentinel macros the analyzer searches for (case-sensitive,
+# whole-token match). Each macro implies the developer has taken a specific
+# microarchitectural mitigation.
+GUARD_MACROS = {
+    "CT_DOITM_ENABLED":    {"profiles": ["modern-x86"]},
+    "CT_FTZ_DAZ":          {"profiles": ["legacy", "modern-x86", "modern-arm", "embedded"]},
+    "CT_ARM_DIT_ENABLED":  {"profiles": ["modern-arm"]},
+    # Developer-asserted: every divisor in this translation unit is public
+    # (compile-time constant or unrelated to secrets). Suppresses INT_DIV
+    # alarms on all profiles. Use sparingly — overuse defeats the analysis.
+    "CT_PUBLIC_DIVISOR":   {"profiles": ["legacy", "modern-x86", "modern-arm", "embedded"]},
+}
+
+# FP arithmetic instructions whose latency depends on whether operands are
+# denormal. With FTZ+DAZ enabled these are constant-time; otherwise the
+# denormal slow-path can leak ~10-100 cycles. We add these to the rule set
+# only when CT_FTZ_DAZ is *absent*. DIV/SQRT are already in the base rules
+# regardless of FTZ.
+DENORMAL_RISK_INSTRUCTIONS = {
+    "x86_64": {
+        "addss":  "ADDSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "addsd":  "ADDSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "subss":  "SUBSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "subsd":  "SUBSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "mulss":  "MULSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "mulsd":  "MULSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vaddss": "VADDSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vaddsd": "VADDSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vsubss": "VSUBSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vsubsd": "VSUBSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vmulss": "VMULSS may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        "vmulsd": "VMULSD may take denormal slow-path (enable FTZ+DAZ or guard with CT_FTZ_DAZ)",
+        # Fused multiply-add — also denormal-sensitive
+        "vfmadd132ss": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+        "vfmadd213ss": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+        "vfmadd231ss": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+        "vfmadd132sd": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+        "vfmadd213sd": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+        "vfmadd231sd": "VFMA may take denormal slow-path (enable FTZ+DAZ)",
+    },
+    "arm64": {
+        "fadd":  "FADD may take denormal slow-path (enable FPCR.FZ or guard with CT_FTZ_DAZ)",
+        "fsub":  "FSUB may take denormal slow-path (enable FPCR.FZ or guard with CT_FTZ_DAZ)",
+        "fmul":  "FMUL may take denormal slow-path (enable FPCR.FZ or guard with CT_FTZ_DAZ)",
+        "fmadd": "FMADD may take denormal slow-path (enable FPCR.FZ or guard with CT_FTZ_DAZ)",
+        "fmsub": "FMSUB may take denormal slow-path (enable FPCR.FZ or guard with CT_FTZ_DAZ)",
+    },
+    "arm": {
+        "vadd.f32": "VADD.F32 may take denormal slow-path (enable FPSCR.FZ or guard with CT_FTZ_DAZ)",
+        "vsub.f32": "VSUB.F32 may take denormal slow-path (enable FPSCR.FZ or guard with CT_FTZ_DAZ)",
+        "vmul.f32": "VMUL.F32 may take denormal slow-path (enable FPSCR.FZ or guard with CT_FTZ_DAZ)",
+        "vmla.f32": "VMLA.F32 may take denormal slow-path (enable FPSCR.FZ or guard with CT_FTZ_DAZ)",
+        "vfma.f32": "VFMA.F32 may take denormal slow-path (enable FPSCR.FZ or guard with CT_FTZ_DAZ)",
+    },
+}
+
+
 class OutputFormat(Enum):
     TEXT = "text"
     JSON = "json"
@@ -780,12 +906,85 @@ def get_compiler(name: str, language: str) -> Compiler:
         return ClangCompiler()
 
 
+def detect_guards(source_path: str) -> set[str]:
+    """Scan a source file for CT guard macros (#define CT_*)."""
+    if not source_path or not os.path.exists(source_path):
+        return set()
+    found = set()
+    try:
+        with open(source_path, errors="replace") as f:
+            text = f.read()
+    except (OSError, UnicodeDecodeError):
+        return set()
+    for macro in GUARD_MACROS:
+        # Match a `#define <macro>` directive. We deliberately do NOT treat
+        # bare textual occurrence as activation — the macro must be defined.
+        if re.search(rf"^\s*#\s*define\s+{re.escape(macro)}\b", text, re.MULTILINE):
+            found.add(macro)
+    return found
+
+
+def suppression_set(arch: str, profile: str, guards: set[str]) -> set[str]:
+    """Return the set of mnemonics to suppress under (profile, guards).
+
+    Only suppress ERRORS we are CONFIDENT are constant-time on the target.
+    The conservative bias is: when in doubt, keep flagging.
+    """
+    arch = normalize_arch(arch)
+    suppressed: set[str] = set()
+
+    if profile == "modern-x86" and "CT_DOITM_ENABLED" in guards:
+        # Intel/AMD DOI lists are processor-specific. Empirical measurement
+        # (benchmark/measure/) on Intel Xeon Skylake-class CPUs shows that
+        # DOITM consistently covers INTEGER DIV/IDIV but does NOT make
+        # DIVSS/DIVSD/SQRT* constant-time. We therefore only suppress
+        # integer DIV under DOITM. FP DIV/SQRT remain ERROR.
+        suppressed.update({
+            "div", "idiv", "divb", "divw", "divl", "divq",
+            "idivb", "idivw", "idivl", "idivq",
+        })
+
+    if "CT_PUBLIC_DIVISOR" in guards:
+        # Developer asserts every divisor in this TU is public. Suppress
+        # integer DIV mnemonics. (FP_DIV / FSQRT remain — those are
+        # variable-time even with public operands on most CPUs.)
+        suppressed.update({
+            "div", "idiv", "divb", "divw", "divl", "divq",
+            "idivb", "idivw", "idivl", "idivq",
+            "udiv", "sdiv",  # ARM
+            "divu", "divw", "divuw", "rem", "remu", "remw", "remuw",  # RISC-V
+            "divwu", "divd", "divdu", "divwe", "divweu", "divde", "divdeu",  # PPC
+            "d", "dr", "dl", "dlr", "dlg", "dlgr", "dsg", "dsgr", "dsgf", "dsgfr",  # s390x
+        })
+
+    if "CT_FTZ_DAZ" in guards:
+        # FTZ+DAZ removes the denormal slow-path on FP add/sub/mul.
+        # IT DOES NOT make DIV/SQRT constant-time.
+        # (FP add/sub/mul are already not in DANGEROUS_INSTRUCTIONS, so no
+        # suppression needed for the legacy rule set; this is forward-
+        # compatible with iteration 2 which adds FP-arith detection.)
+        suppressed.update({
+            "addss", "addsd", "subss", "subsd", "mulss", "mulsd",
+            "vaddss", "vaddsd", "vsubss", "vsubsd", "vmulss", "vmulsd",
+            "fadd", "fsub", "fmul",  # ARM
+        })
+
+    # NOTE: CT_ARM_DIT_ENABLED never suppresses SDIV/UDIV — the ARM ARM is
+    # explicit that DIT does not cover integer division. We deliberately do
+    # not add SDIV/UDIV to the suppression set on modern-arm.
+
+    return suppressed
+
+
 class AssemblyParser:
     """Parser for assembly output from various compilers."""
 
-    def __init__(self, arch: str, compiler: str):
+    def __init__(self, arch: str, compiler: str,
+                 profile: str = "legacy", guards: set[str] | None = None):
         self.arch = normalize_arch(arch)
         self.compiler = compiler
+        self.profile = profile
+        self.guards = guards or set()
 
         # Get dangerous instructions for this architecture
         if self.arch not in DANGEROUS_INSTRUCTIONS:
@@ -799,8 +998,63 @@ class AssemblyParser:
             self.warnings = {}
         else:
             arch_instructions = DANGEROUS_INSTRUCTIONS[self.arch]
-            self.errors = arch_instructions.get("errors", {})
-            self.warnings = arch_instructions.get("warnings", {})
+            self.errors = dict(arch_instructions.get("errors", {}))
+            self.warnings = dict(arch_instructions.get("warnings", {}))
+
+        # Apply CPU-profile + guard-macro suppression.
+        suppress = suppression_set(self.arch, self.profile, self.guards)
+        for m in suppress:
+            self.errors.pop(m, None)
+
+        # Activate denormal-risk rules when FTZ/DAZ is NOT guaranteed.
+        # FP add/sub/mul are constant-time iff denormals are flushed; without
+        # CT_FTZ_DAZ we treat them as denormal-channel violations.
+        if "CT_FTZ_DAZ" not in self.guards:
+            denormal_rules = DENORMAL_RISK_INSTRUCTIONS.get(self.arch, {})
+            for m, reason in denormal_rules.items():
+                # Don't override an existing rule (DIV/SQRT already covered).
+                self.errors.setdefault(m, reason)
+
+        # Embedded MUL is variable-time on tiny Cortex-M cores.
+        if self.profile == "embedded":
+            mul_rules = EMBEDDED_MUL_INSTRUCTIONS.get(self.arch, {})
+            for m, reason in mul_rules.items():
+                self.errors.setdefault(m, reason)
+
+    def _suppressed_helpers(self) -> set[str]:
+        """Helper calls suppressed under the current profile + guards."""
+        suppressed = set()
+        if self.profile == "modern-x86" and "CT_DOITM_ENABLED" in self.guards:
+            suppressed.update({"sqrtf", "sqrt", "sqrtl"})
+        if "CT_PUBLIC_DIVISOR" in self.guards:
+            suppressed.update({
+                "__aeabi_idiv", "__aeabi_uidiv", "__aeabi_idivmod",
+                "__aeabi_uidivmod", "__aeabi_ldivmod", "__aeabi_uldivmod",
+                "__divdi3", "__udivdi3", "__divsi3", "__udivsi3",
+                "__moddi3", "__umoddi3",
+            })
+        # FTZ does NOT make sqrt CT, so don't suppress sqrt under CT_FTZ_DAZ.
+        return suppressed
+
+    @staticmethod
+    def _extract_call_target(line: str) -> str | None:
+        """Extract callee symbol from a call/bl instruction line.
+
+        Handles x86 ``call sqrtf@PLT``, ARM ``bl sqrtf``, and similar.
+        Returns None if the target is indirect (register / memory).
+        """
+        # x86: 'callq sqrtf@PLT' or 'call sqrtf'
+        # ARM: 'bl __aeabi_idiv' or 'bl sqrtf'
+        m = re.search(r"\b(?:call|callq|calll|bl|blx)\s+([a-zA-Z_][a-zA-Z0-9_.]*)", line)
+        if not m:
+            return None
+        target = m.group(1)
+        # Strip @PLT / @GOTPCREL / similar PIC suffixes
+        target = target.split("@", 1)[0]
+        # Strip leading underscore on Mach-O (sym name vs C name)
+        if target.startswith("_") and not target.startswith("__"):
+            target = target[1:]
+        return target
 
     def parse(
         self, assembly_text: str, include_warnings: bool = False
@@ -816,6 +1070,11 @@ class AssemblyParser:
         current_file = None
         current_line = None
         instruction_count = 0
+
+        # Sliding window mapping register -> "imm" if the most recent write to
+        # that register was a literal immediate. Reset at function boundaries.
+        # Used by IDIV constant-divisor downgrade on modern-x86.
+        reg_source: dict[str, str] = {}
 
         for line in assembly_text.split("\n"):
             line = line.strip()
@@ -851,6 +1110,7 @@ class AssemblyParser:
                     )
                 current_function = func_match.group(1)
                 instruction_count = 0
+                reg_source = {}
                 continue
 
             # Skip directives
@@ -889,20 +1149,79 @@ class AssemblyParser:
 
             instruction_count += 1
 
+            # Track immediate-into-register writes for constant-divisor
+            # detection on x86. Match `mov[lqw] $<imm>, %<reg>`.
+            imm_match = re.match(
+                r"\s*mov[lqwbz]?\s+\$(?:0x)?[0-9a-fA-F]+,\s*%([a-zA-Z][a-zA-Z0-9]*)",
+                line,
+            )
+            if imm_match:
+                reg_source[imm_match.group(1).lower()] = "imm"
+            elif re.match(r"\s*mov[lqwbz]?\s+", line):
+                # Other moves into a register invalidate "imm" status.
+                # Conservatively clear all known regs we can identify as a dest.
+                # The destination is the last %<reg> on the line.
+                dests = re.findall(r"%([a-zA-Z][a-zA-Z0-9]*)", line)
+                if dests:
+                    reg_source.pop(dests[-1].lower(), None)
+
+            # Helper-function call detection (e.g. -O0 sqrt, ARM softdiv).
+            # Trigger on x86 'call*' or ARM 'bl*' whose target name matches a
+            # known variable-time runtime helper.
+            if mnemonic in ("call", "callq", "calll", "bl", "blx", "blr", "br"):
+                helper = self._extract_call_target(line)
+                rule = HELPER_CALL_RULES.get(helper) if helper else None
+                if rule and helper not in self._suppressed_helpers():
+                    family, reason = rule
+                    violations.append(
+                        Violation(
+                            function=current_function or "<unknown>",
+                            file=current_file or "",
+                            line=current_line,
+                            address=address,
+                            instruction=instruction,
+                            mnemonic=family,
+                            reason=reason,
+                            severity=Severity.ERROR,
+                        )
+                    )
+                    continue
+
             # Check for violations
             if mnemonic in self.errors:
-                violations.append(
-                    Violation(
-                        function=current_function or "<unknown>",
-                        file=current_file or "",
-                        line=current_line,
-                        address=address,
-                        instruction=instruction,
-                        mnemonic=mnemonic.upper(),
-                        reason=self.errors[mnemonic],
-                        severity=Severity.ERROR,
+                severity = Severity.ERROR
+                reason = self.errors[mnemonic]
+                # Constant-divisor downgrade: on modern-x86, if the IDIV/DIV
+                # operand register was just loaded from an immediate, the
+                # divisor is public — leak channel reduces to the dividend
+                # via DIV timing, which DOITM (when available) covers.
+                if (self.profile == "modern-x86"
+                        and mnemonic in {"div", "idiv", "divl", "divq",
+                                          "idivl", "idivq", "divw", "idivw",
+                                          "divb", "idivb"}):
+                    # Operand of IDIV is a single register or memory; check
+                    # if it's a register whose latest write was an immediate.
+                    op_match = re.search(r"%([a-zA-Z][a-zA-Z0-9]*)", line)
+                    if op_match and reg_source.get(op_match.group(1).lower()) == "imm":
+                        severity = Severity.WARNING
+                        reason = (reason
+                                  + " (constant divisor detected — review only;"
+                                  " safe under DOITM)")
+                if severity == Severity.WARNING and not include_warnings:
+                    pass  # do not record
+                else:
+                    violations.append(
+                        Violation(
+                            function=current_function or "<unknown>",
+                            file=current_file or "",
+                            line=current_line,
+                            address=address,
+                            instruction=instruction,
+                            mnemonic=mnemonic.upper(),
+                            reason=reason,
+                            severity=severity,
+                        )
                     )
-                )
             elif include_warnings and mnemonic in self.warnings:
                 violations.append(
                     Violation(
@@ -937,6 +1256,7 @@ def analyze_source(
     include_warnings: bool = False,
     function_filter: str = None,
     extra_flags: list[str] = None,
+    cpu_profile: str = "legacy",
 ) -> AnalysisReport:
     """
     Analyze a source file for constant-time violations.
@@ -1019,7 +1339,9 @@ def analyze_source(
             assembly_text = f.read()
 
         # Parse and analyze
-        parser = AssemblyParser(arch, compiler_obj.name)
+        guards = detect_guards(str(source_path.absolute()))
+        parser = AssemblyParser(arch, compiler_obj.name,
+                                profile=cpu_profile, guards=guards)
         functions, violations = parser.parse(assembly_text, include_warnings)
 
         # Filter functions if requested
@@ -1227,6 +1549,18 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
         default=[],
         help="Extra flags to pass to the compiler",
     )
+    parser.add_argument(
+        "--cpu-profile",
+        choices=list(CPU_PROFILES.keys()),
+        default="legacy",
+        help=(
+            "Target CPU class. 'legacy' (default) keeps the strict pre-Ice-Lake "
+            "rule set. 'modern-x86' suppresses DIV/SQRT alarms when the source "
+            "defines CT_DOITM_ENABLED. 'modern-arm' enables ARMv8.4 DIT-aware "
+            "rules (note: SDIV/UDIV are NEVER suppressed even with DIT). "
+            "'embedded' adds variable-time MUL detection for Cortex-M0/M3."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -1267,6 +1601,7 @@ Note: VM-compiled and scripting languages analyze bytecode and don't use --arch 
                 include_warnings=args.warnings,
                 function_filter=args.func,
                 extra_flags=args.extra_flags,
+                cpu_profile=args.cpu_profile,
             )
 
         print(format_report(report, output_format))

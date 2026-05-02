@@ -47,14 +47,40 @@ x86_64, arm64, arm, riscv64, ppc64le, s390x, i386
 
 ## Dangerous Instructions by Architecture
 
-| Architecture | Division | Floating-Point |
-|-------------|----------|----------------|
-| x86_64 | DIV, IDIV, DIVQ, IDIVQ | DIVSS, DIVSD, SQRTSS, SQRTSD |
-| ARM64 | UDIV, SDIV | FDIV, FSQRT |
-| ARM | UDIV, SDIV | VDIV, VSQRT |
-| RISC-V | DIV, DIVU, REM, REMU | FDIV.S, FDIV.D, FSQRT |
-| PowerPC | DIVW, DIVD | FDIV, FSQRT |
-| s390x | D, DR, DL, DLG, DSG | DDB, SQDB |
+| Architecture | Integer Division | Floating-Point | Embedded MUL (Cortex-M0/M3) |
+|-------------|----------|----------------|-----|
+| x86_64 | DIV, IDIV, DIVQ, IDIVQ | DIVSS, DIVSD, SQRTSS, SQRTSD, MULSS/ADDSS (denormals) | n/a |
+| ARM64 | UDIV, SDIV | FDIV, FSQRT, FADD/FMUL/FMADD (denormals) | n/a |
+| ARM | UDIV, SDIV, `__aeabi_idiv` (call) | VDIV, VSQRT, VADD/VMUL (denormals) | MUL, MULS, UMULL, SMULL, SMMUL |
+| RISC-V | DIV, DIVU, REM, REMU | FDIV.S, FDIV.D, FSQRT | n/a |
+| PowerPC | DIVW, DIVD | FDIV, FSQRT | n/a |
+| s390x | D, DR, DL, DLG, DSG | DDB, SQDB | n/a |
+
+## CPU Profile Selection
+
+```bash
+# Defensive default — assumes worst-case CPU
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile legacy crypto.c
+
+# Modern x86 with DOITM (Ice Lake+, Zen3+) — INT DIV suppressed if
+# CT_DOITM_ENABLED is defined in source. FP DIV/SQRT still flagged.
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile modern-x86 --arch x86_64 crypto.c
+
+# Modern ARM with DIT — note SDIV/UDIV are NOT covered by DIT.
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile modern-arm --arch arm64 crypto.c
+
+# Cortex-M0/M3 — adds variable-time MUL detection.
+uv run {baseDir}/ct_analyzer/analyzer.py --cpu-profile embedded --arch arm crypto.c
+```
+
+## Source-Level Guard Macros
+
+The analyzer scans the source for `#define` of:
+
+- **`CT_DOITM_ENABLED`** — suppresses INT DIV/IDIV under `modern-x86` (developer asserts process enables Intel/AMD DOITM via MSR at runtime).
+- **`CT_FTZ_DAZ`** — suppresses MULSS/ADDSS/FMUL/FADD denormal-channel ERRORs (developer asserts MXCSR FTZ+DAZ is set; FP DIV/SQRT remain ERROR).
+- **`CT_PUBLIC_DIVISOR`** — suppresses every INT DIV in the file (developer asserts every divisor is public).
+- **`CT_ARM_DIT_ENABLED`** — currently informational; ARMv8.4 DIT does not cover SDIV/UDIV.
 
 ## Constant-Time Patterns
 

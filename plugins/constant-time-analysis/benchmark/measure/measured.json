@@ -1,0 +1,520 @@
+{
+  "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "host_arch": "x86_64",
+  "raw_measurements": {
+    "divq": {
+      "op": "divq",
+      "n_runs": 3,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "cv_varying_max": 0.014643,
+      "mean_cycles_varying": 20.356,
+      "mean_cycles_fixed": 20.447,
+      "measured_variable_time": false
+    },
+    "idivq": {
+      "op": "idivq",
+      "n_runs": 3,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "cv_varying_max": 0.049399,
+      "mean_cycles_varying": 20.803,
+      "mean_cycles_fixed": 20.58,
+      "measured_variable_time": false
+    },
+    "mulq": {
+      "op": "mulq",
+      "n_runs": 3,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "cv_varying_max": 0.054668,
+      "mean_cycles_varying": 11.471,
+      "mean_cycles_fixed": 11.672,
+      "measured_variable_time": false
+    },
+    "divss": {
+      "op": "divss",
+      "n_runs": 3,
+      "cv_varying": 0.253676,
+      "cv_fixed": 0.008833,
+      "cv_varying_max": 0.253704,
+      "mean_cycles_varying": 81.495,
+      "mean_cycles_fixed": 92.082,
+      "measured_variable_time": true
+    },
+    "divsd": {
+      "op": "divsd",
+      "n_runs": 3,
+      "cv_varying": 0.50966,
+      "cv_fixed": 0.006864,
+      "cv_varying_max": 0.50966,
+      "mean_cycles_varying": 29.598,
+      "mean_cycles_fixed": 48.83,
+      "measured_variable_time": true
+    },
+    "mulss": {
+      "op": "mulss",
+      "n_runs": 3,
+      "cv_varying": 0.020945,
+      "cv_fixed": 2.5e-05,
+      "cv_varying_max": 0.040632,
+      "mean_cycles_varying": 11.538,
+      "mean_cycles_fixed": 11.479,
+      "measured_variable_time": false
+    },
+    "addss": {
+      "op": "addss",
+      "n_runs": 3,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "cv_varying_max": 0.023816,
+      "mean_cycles_varying": 11.479,
+      "mean_cycles_fixed": 11.481,
+      "measured_variable_time": false
+    },
+    "sqrtss": {
+      "op": "sqrtss",
+      "n_runs": 3,
+      "cv_varying": 0.019681,
+      "cv_fixed": 0.000158,
+      "cv_varying_max": 0.032929,
+      "mean_cycles_varying": 16.052,
+      "mean_cycles_fixed": 15.947,
+      "measured_variable_time": false
+    },
+    "mulss_denorm": {
+      "op": "mulss_denorm",
+      "n_runs": 3,
+      "cv_varying": 4.2e-05,
+      "cv_fixed": 0.013497,
+      "cv_varying_max": 0.037285,
+      "mean_cycles_varying": 11.479,
+      "mean_cycles_fixed": 11.499,
+      "measured_variable_time": false
+    },
+    "addss_denorm": {
+      "op": "addss_denorm",
+      "n_runs": 3,
+      "cv_varying": 4.2e-05,
+      "cv_fixed": 4.5e-05,
+      "cv_varying_max": 0.028149,
+      "mean_cycles_varying": 11.478,
+      "mean_cycles_fixed": 11.478,
+      "measured_variable_time": false
+    }
+  },
+  "by_mnemonic": {
+    "div": {
+      "measured_variable_time": false,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "mean_cycles_varying": 20.356,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divq"
+    },
+    "divq": {
+      "measured_variable_time": false,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "mean_cycles_varying": 20.356,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divq"
+    },
+    "divl": {
+      "measured_variable_time": false,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "mean_cycles_varying": 20.356,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divq"
+    },
+    "divw": {
+      "measured_variable_time": false,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "mean_cycles_varying": 20.356,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divq"
+    },
+    "divb": {
+      "measured_variable_time": false,
+      "cv_varying": 0.006225,
+      "cv_fixed": 0.024189,
+      "mean_cycles_varying": 20.356,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divq"
+    },
+    "idiv": {
+      "measured_variable_time": false,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "mean_cycles_varying": 20.803,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "idivq"
+    },
+    "idivq": {
+      "measured_variable_time": false,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "mean_cycles_varying": 20.803,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "idivq"
+    },
+    "idivl": {
+      "measured_variable_time": false,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "mean_cycles_varying": 20.803,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "idivq"
+    },
+    "idivw": {
+      "measured_variable_time": false,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "mean_cycles_varying": 20.803,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "idivq"
+    },
+    "idivb": {
+      "measured_variable_time": false,
+      "cv_varying": 0.038463,
+      "cv_fixed": 0.032863,
+      "mean_cycles_varying": 20.803,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "idivq"
+    },
+    "mul": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "mulq": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "mull": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "imul": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "imulq": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "imull": {
+      "measured_variable_time": false,
+      "cv_varying": 0.017026,
+      "cv_fixed": 0.058574,
+      "mean_cycles_varying": 11.471,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulq"
+    },
+    "divss": {
+      "measured_variable_time": true,
+      "cv_varying": 0.253676,
+      "cv_fixed": 0.008833,
+      "mean_cycles_varying": 81.495,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divss"
+    },
+    "divps": {
+      "measured_variable_time": true,
+      "cv_varying": 0.253676,
+      "cv_fixed": 0.008833,
+      "mean_cycles_varying": 81.495,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divss"
+    },
+    "vdivss": {
+      "measured_variable_time": true,
+      "cv_varying": 0.253676,
+      "cv_fixed": 0.008833,
+      "mean_cycles_varying": 81.495,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divss"
+    },
+    "vdivps": {
+      "measured_variable_time": true,
+      "cv_varying": 0.253676,
+      "cv_fixed": 0.008833,
+      "mean_cycles_varying": 81.495,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divss"
+    },
+    "divsd": {
+      "measured_variable_time": true,
+      "cv_varying": 0.50966,
+      "cv_fixed": 0.006864,
+      "mean_cycles_varying": 29.598,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divsd"
+    },
+    "divpd": {
+      "measured_variable_time": true,
+      "cv_varying": 0.50966,
+      "cv_fixed": 0.006864,
+      "mean_cycles_varying": 29.598,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divsd"
+    },
+    "vdivsd": {
+      "measured_variable_time": true,
+      "cv_varying": 0.50966,
+      "cv_fixed": 0.006864,
+      "mean_cycles_varying": 29.598,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divsd"
+    },
+    "vdivpd": {
+      "measured_variable_time": true,
+      "cv_varying": 0.50966,
+      "cv_fixed": 0.006864,
+      "mean_cycles_varying": 29.598,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "divsd"
+    },
+    "mulss": {
+      "measured_variable_time": false,
+      "cv_varying": 0.020945,
+      "cv_fixed": 2.5e-05,
+      "mean_cycles_varying": 11.538,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulss"
+    },
+    "mulps": {
+      "measured_variable_time": false,
+      "cv_varying": 0.020945,
+      "cv_fixed": 2.5e-05,
+      "mean_cycles_varying": 11.538,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulss"
+    },
+    "vmulss": {
+      "measured_variable_time": false,
+      "cv_varying": 0.020945,
+      "cv_fixed": 2.5e-05,
+      "mean_cycles_varying": 11.538,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulss"
+    },
+    "vmulps": {
+      "measured_variable_time": false,
+      "cv_varying": 0.020945,
+      "cv_fixed": 2.5e-05,
+      "mean_cycles_varying": 11.538,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "mulss"
+    },
+    "addss": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "subss": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "addps": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "subps": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "vaddss": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "vsubss": {
+      "measured_variable_time": false,
+      "cv_varying": 3.4e-05,
+      "cv_fixed": 0.001942,
+      "mean_cycles_varying": 11.479,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "addss"
+    },
+    "sqrtss": {
+      "measured_variable_time": false,
+      "cv_varying": 0.019681,
+      "cv_fixed": 0.000158,
+      "mean_cycles_varying": 16.052,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "sqrtss"
+    },
+    "sqrtps": {
+      "measured_variable_time": false,
+      "cv_varying": 0.019681,
+      "cv_fixed": 0.000158,
+      "mean_cycles_varying": 16.052,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "sqrtss"
+    },
+    "vsqrtss": {
+      "measured_variable_time": false,
+      "cv_varying": 0.019681,
+      "cv_fixed": 0.000158,
+      "mean_cycles_varying": 16.052,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "sqrtss"
+    },
+    "vsqrtps": {
+      "measured_variable_time": false,
+      "cv_varying": 0.019681,
+      "cv_fixed": 0.000158,
+      "mean_cycles_varying": 16.052,
+      "source": "measured",
+      "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "from_op": "sqrtss"
+    },
+    "udiv": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT does not cover SDIV/UDIV)"
+    },
+    "sdiv": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT does not cover SDIV/UDIV)"
+    },
+    "fdiv": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM"
+    },
+    "fsqrt": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM"
+    },
+    "fadd": {
+      "measured_variable_time": false,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT-covered)"
+    },
+    "fsub": {
+      "measured_variable_time": false,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT-covered)"
+    },
+    "fmul": {
+      "measured_variable_time": false,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT-covered)"
+    },
+    "fmadd": {
+      "measured_variable_time": false,
+      "source": "documented",
+      "doc_source": "ARM ARM (DIT-covered)"
+    },
+    "vdiv.f32": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM"
+    },
+    "vdiv.f64": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM"
+    },
+    "vsqrt.f32": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "ARM ARM"
+    },
+    "smmul": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "Cortex-M3 TRM (32-cycle MUL)"
+    },
+    "umull": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "Cortex-M3 TRM (32-cycle MUL)"
+    },
+    "smull": {
+      "measured_variable_time": true,
+      "source": "documented",
+      "doc_source": "Cortex-M3 TRM (32-cycle MUL)"
+    }
+  }
+}
