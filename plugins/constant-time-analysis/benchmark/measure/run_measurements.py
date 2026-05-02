@@ -30,16 +30,51 @@ OUT = HERE / "measured.json"
 # Measured ops -> the assembly mnemonic(s) they certify behaviour for.
 # Several mnemonics share a behaviour family; e.g. divq covers div/idiv/divl/idivl.
 OP_TO_MNEMONICS = {
+    # Integer DIV / MUL
     "divq":         ["div", "divq", "divl", "divw", "divb"],
     "idivq":        ["idiv", "idivq", "idivl", "idivw", "idivb"],
     "mulq":         ["mul", "mulq", "mull", "imul", "imulq", "imull"],
-    "divss":        ["divss", "divps", "vdivss", "vdivps"],
-    "divsd":        ["divsd", "divpd", "vdivsd", "vdivpd"],
-    "mulss":        ["mulss", "mulps", "vmulss", "vmulps"],
-    "addss":        ["addss", "subss", "addps", "subps", "vaddss", "vsubss"],
-    "sqrtss":       ["sqrtss", "sqrtps", "vsqrtss", "vsqrtps"],
-    "mulss_denorm": [],  # informational only; reuses mulss mnemonic with denormal inputs
+    # Scalar FP single
+    "divss":        ["divss"],
+    "mulss":        ["mulss"],
+    "addss":        ["addss"],
+    "subss":        ["subss"],
+    "sqrtss":       ["sqrtss"],
+    # Scalar FP double
+    "divsd":        ["divsd"],
+    "mulsd":        ["mulsd"],
+    "addsd":        ["addsd"],
+    "subsd":        ["subsd"],
+    "sqrtsd":       ["sqrtsd"],
+    # Packed FP
+    "divps":        ["divps"],
+    "divpd":        ["divpd"],
+    "sqrtps":       ["sqrtps"],
+    "sqrtpd":       ["sqrtpd"],
+    # AVX scalar
+    "vdivss":       ["vdivss"],
+    "vdivsd":       ["vdivsd"],
+    "vmulss":       ["vmulss"],
+    "vsqrtss":      ["vsqrtss"],
+    # FMA
+    "vfmadd231ss":  ["vfmadd231ss", "vfmadd132ss", "vfmadd213ss"],
+    "vfmadd231sd":  ["vfmadd231sd", "vfmadd132sd", "vfmadd213sd"],
+    # Denormal-input variants — these reuse the base mnemonic so we DON'T
+    # remap them; instead the measured.json has them as standalone ops only.
+    "mulss_denorm": [],
     "addss_denorm": [],
+    "mulsd_denorm": [],
+    "addsd_denorm": [],
+    # Suspect not-currently-flagged instructions (FN candidates)
+    "bsf":          ["bsf", "bsfq", "bsfl"],
+    "bsr":          ["bsr", "bsrq", "bsrl"],
+    "lzcnt":        ["lzcnt", "lzcntq", "lzcntl"],
+    "tzcnt":        ["tzcnt", "tzcntq", "tzcntl"],
+    "popcnt":       ["popcnt", "popcntq", "popcntl"],
+    "cmov":         ["cmovbq", "cmoveq", "cmovaq", "cmov"],
+    "pclmulqdq":    ["pclmulqdq"],
+    "aesenc":       ["aesenc", "aesenclast", "aesdec", "aesdeclast"],
+    "rep_movsb":    ["rep movsb"],
 }
 
 # For non-measurable architectures, use documented verdicts. These come from

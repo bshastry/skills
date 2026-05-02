@@ -1,0 +1,1387 @@
+{
+  "profiles": {
+    "legacy": {
+      "TP": 14,
+      "FP": 0,
+      "FN": 0,
+      "TN": 7,
+      "P": 1.0,
+      "R": 1.0,
+      "F1": 1.0,
+      "F0.5": 1.0,
+      "AD": 0.95,
+      "fatigue": 1.0,
+      "S": 1.0
+    },
+    "modern-x86": {
+      "TP": 11,
+      "FP": 0,
+      "FN": 0,
+      "TN": 10,
+      "P": 1.0,
+      "R": 1.0,
+      "F1": 1.0,
+      "F0.5": 1.0,
+      "AD": 0.76,
+      "fatigue": 1.0,
+      "S": 1.0
+    },
+    "modern-arm": {
+      "TP": 14,
+      "FP": 0,
+      "FN": 0,
+      "TN": 7,
+      "P": 1.0,
+      "R": 1.0,
+      "F1": 1.0,
+      "F0.5": 1.0,
+      "AD": 0.9,
+      "fatigue": 1.0,
+      "S": 1.0
+    },
+    "embedded": {
+      "TP": 15,
+      "FP": 0,
+      "FN": 0,
+      "TN": 6,
+      "P": 1.0,
+      "R": 1.0,
+      "F1": 1.0,
+      "F0.5": 1.0,
+      "AD": 0.95,
+      "fatigue": 1.0,
+      "S": 1.0
+    }
+  },
+  "per_case": {
+    "legacy": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "16_doitm_wrong_arch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "17_ftz_sqrt_still_unsafe.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "18_mixed_div.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "19_mldsa_decompose.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 6,
+        "warnings": 3,
+        "expected_alarm": true
+      },
+      "20_safe_xor_chain.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "21_memcmp_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "modern-x86": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "16_doitm_wrong_arch.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "17_ftz_sqrt_still_unsafe.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "18_mixed_div.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 1,
+        "expected_alarm": true
+      },
+      "19_mldsa_decompose.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 6,
+        "warnings": 3,
+        "expected_alarm": true
+      },
+      "20_safe_xor_chain.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "21_memcmp_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "modern-arm": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "16_doitm_wrong_arch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "17_ftz_sqrt_still_unsafe.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "18_mixed_div.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "19_mldsa_decompose.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 6,
+        "warnings": 3,
+        "expected_alarm": true
+      },
+      "20_safe_xor_chain.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "21_memcmp_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    },
+    "embedded": {
+      "01_kyber_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "02_div_public_const.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "03_div_with_doitm.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "04_fp_no_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "05_fp_with_ftz.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "06_fp_div_with_ftz.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "07_arm_sdiv_with_dit.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "08_embedded_mul.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "09_safe_table.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "10_div_loop_counter.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "11_fsqrt_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "12_idiv_const_divisor.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "13_secret_branch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 0,
+        "warnings": 1,
+        "expected_alarm": false
+      },
+      "14_safe_mask.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "15_double_div_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "16_doitm_wrong_arch.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "17_ftz_sqrt_still_unsafe.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "18_mixed_div.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 2,
+        "warnings": 0,
+        "expected_alarm": true
+      },
+      "19_mldsa_decompose.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 6,
+        "warnings": 3,
+        "expected_alarm": true
+      },
+      "20_safe_xor_chain.c": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 1,
+        "alarms": 0,
+        "warnings": 0,
+        "expected_alarm": false
+      },
+      "21_memcmp_secret.c": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0,
+        "alarms": 1,
+        "warnings": 0,
+        "expected_alarm": true
+      }
+    }
+  },
+  "macro_S": 1.0,
+  "measurement_grounding": {
+    "host_cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "by_profile": {
+      "legacy": {
+        "TP": 3,
+        "FP": 31,
+        "FN": 0,
+        "TN": 0,
+        "P": 0.088,
+        "R": 1.0,
+        "F0.5": 0.108,
+        "confusion": [
+          {
+            "mnemonic": "addsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "addss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "div",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divb",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divl",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divpd",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divps",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divq",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divsd",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divss",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divw",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idiv",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivb",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivl",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivq",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivw",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "mulsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "mulss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtpd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtps",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "subsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "subss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vdivsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vdivss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd132sd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd132ss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd213sd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd213ss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd231sd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd231ss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vmulss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vsqrtss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          }
+        ]
+      },
+      "modern-x86": {
+        "TP": 3,
+        "FP": 8,
+        "FN": 0,
+        "TN": 23,
+        "P": 0.273,
+        "R": 1.0,
+        "F0.5": 0.319,
+        "confusion": [
+          {
+            "mnemonic": "addsd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "addss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "div",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divb",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divl",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divpd",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divps",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divq",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divsd",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divss",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "divw",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idiv",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivb",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivl",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivq",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "idivw",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "mulsd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "mulss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtpd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtps",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sqrtss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "subsd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "subss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vdivsd",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vdivss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd132sd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd132ss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd213sd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd213ss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd231sd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vfmadd231ss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vmulss",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "vsqrtss",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          }
+        ]
+      },
+      "modern-arm": {
+        "TP": 4,
+        "FP": 0,
+        "FN": 0,
+        "TN": 4,
+        "P": 1.0,
+        "R": 1.0,
+        "F0.5": 1.0,
+        "confusion": [
+          {
+            "mnemonic": "fadd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "fdiv",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "fmadd",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "fmul",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "fsqrt",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "fsub",
+            "measured_variable_time": false,
+            "analyzer_flags": false,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "sdiv",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "udiv",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          }
+        ]
+      },
+      "embedded": {
+        "TP": 8,
+        "FP": 1,
+        "FN": 0,
+        "TN": 0,
+        "P": 0.889,
+        "R": 1.0,
+        "F0.5": 0.909,
+        "confusion": [
+          {
+            "mnemonic": "mul",
+            "measured_variable_time": false,
+            "analyzer_flags": true,
+            "source": "measured"
+          },
+          {
+            "mnemonic": "sdiv",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "smmul",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "smull",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "udiv",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "umull",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "vdiv.f32",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "vdiv.f64",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          },
+          {
+            "mnemonic": "vsqrt.f32",
+            "measured_variable_time": true,
+            "analyzer_flags": true,
+            "source": "documented"
+          }
+        ]
+      }
+    }
+  },
+  "mg_macro_F05": 0.584,
+  "combined_S": 0.834,
+  "iter": 7,
+  "note": "iter7: extended probe coverage, all FN candidates measured",
+  "timestamp": "2026-05-02T06:05:15.134871+00:00"
+}

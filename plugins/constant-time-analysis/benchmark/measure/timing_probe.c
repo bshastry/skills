@@ -220,82 +220,494 @@ static uint64_t bench_addss_denorm(uint32_t bits_a, uint32_t bits_b) {
     return bench_addss(a, b);
 }
 
-/* ---------- driver ---------- */
+/* ---- Scalar-double-precision FP variants ---- */
 
-typedef struct { const char *name; int kind; } op_t;
+static uint64_t bench_mulsd(double a, double b) {
+    double r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("mulsd %1, %0\n\tlfence" : "+x"(r) : "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
 
-enum { OP_INT2, OP_FP2, OP_FP1, OP_INT_DENORM };
+static uint64_t bench_addsd(double a, double b) {
+    double r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("addsd %1, %0\n\tlfence" : "+x"(r) : "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
 
-static const struct {
-    const char *name;
-    uint64_t (*intfn)(uint64_t, uint64_t);
-    uint64_t (*fpfn)(float, float);
-    uint64_t (*fpfn1)(float);
-    uint64_t (*fpfnd)(double, double);
-    uint64_t (*denormfn)(uint32_t, uint32_t);
-    int    is_int;
-    int    is_double;
-    int    is_unary;
-    int    denorm;
-} OPS[] = {
-    { .name="divq",         .intfn=bench_divq,                                           .is_int=1 },
-    { .name="mulq",         .intfn=bench_mulq,                                           .is_int=1 },
-    { .name="idivq",        .intfn=(uint64_t(*)(uint64_t,uint64_t))bench_idivq,          .is_int=1 },
-    { .name="divss",        .fpfn=bench_divss },
-    { .name="divsd",        .fpfnd=bench_divsd,                                          .is_double=1 },
-    { .name="mulss",        .fpfn=bench_mulss },
-    { .name="addss",        .fpfn=bench_addss },
-    { .name="sqrtss",       .fpfn1=bench_sqrtss,                                         .is_unary=1 },
-    { .name="mulss_denorm", .denormfn=bench_mulss_denorm,                                .denorm=1 },
-    { .name="addss_denorm", .denormfn=bench_addss_denorm,                                .denorm=1 },
-    { .name=0 }
+static uint64_t bench_subss(float a, float b) {
+    float r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("subss %1, %0\n\tlfence" : "+x"(r) : "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_subsd(double a, double b) {
+    double r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("subsd %1, %0\n\tlfence" : "+x"(r) : "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_sqrtsd(double a) {
+    if (a < 0) a = -a;
+    double r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("sqrtsd %1, %0\n\tlfence" : "+x"(r) : "x"(a));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* Denormal variants for double */
+static uint64_t bench_mulsd_denorm(uint32_t bits_a, uint32_t bits_b) {
+    uint64_t da = (uint64_t)bits_a & 0x000fffffffffffffULL;
+    uint64_t db = (uint64_t)bits_b & 0x000fffffffffffffULL;
+    if (da == 0) da = 1;
+    if (db == 0) db = 1;
+    double a, b;
+    memcpy(&a, &da, 8); memcpy(&b, &db, 8);
+    return bench_mulsd(a, b);
+}
+
+static uint64_t bench_addsd_denorm(uint32_t bits_a, uint32_t bits_b) {
+    uint64_t da = (uint64_t)bits_a & 0x000fffffffffffffULL;
+    uint64_t db = (uint64_t)bits_b & 0x000fffffffffffffULL;
+    if (da == 0) da = 1;
+    if (db == 0) db = 1;
+    double a, b;
+    memcpy(&a, &da, 8); memcpy(&b, &db, 8);
+    return bench_addsd(a, b);
+}
+
+/* ---- Packed FP (4 floats / 2 doubles per op) ---- */
+
+static uint64_t bench_divps(float a, float b) {
+    if (b == 0.0f) b = 1.0f;
+    float va[4] = {a, a*1.1f, a*1.3f, a*1.7f};
+    float vb[4] = {b, b*1.2f, b*1.5f, b*1.9f};
+    typedef float v4f __attribute__((vector_size(16)));
+    v4f x, y;
+    memcpy(&x, va, 16); memcpy(&y, vb, 16);
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("divps %1, %0\n\tlfence" : "+x"(x) : "x"(y));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_divpd(double a, double b) {
+    if (b == 0.0) b = 1.0;
+    typedef double v2d __attribute__((vector_size(16)));
+    double va[2] = {a, a * 1.3}, vb[2] = {b, b * 1.7};
+    v2d x, y;
+    memcpy(&x, va, 16); memcpy(&y, vb, 16);
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("divpd %1, %0\n\tlfence" : "+x"(x) : "x"(y));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_sqrtps(float a) {
+    if (a < 0) a = -a;
+    typedef float v4f __attribute__((vector_size(16)));
+    float va[4] = {a, a*1.3f, a*1.7f, a*2.1f};
+    v4f x; memcpy(&x, va, 16); v4f y = x;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("sqrtps %1, %0\n\tlfence" : "+x"(x) : "x"(y));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_sqrtpd(double a) {
+    if (a < 0) a = -a;
+    typedef double v2d __attribute__((vector_size(16)));
+    double va[2] = {a, a * 1.3};
+    v2d x; memcpy(&x, va, 16); v2d y = x;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("sqrtpd %1, %0\n\tlfence" : "+x"(x) : "x"(y));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* ---- AVX (VEX-encoded) scalar variants ---- */
+
+static uint64_t bench_vdivss(float a, float b) {
+    if (b == 0.0f) b = 1.0f;
+    float r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("vdivss %2, %1, %0\n\tlfence"
+                             : "=x"(r) : "x"(a), "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_vdivsd(double a, double b) {
+    if (b == 0.0) b = 1.0;
+    double r = a;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("vdivsd %2, %1, %0\n\tlfence"
+                             : "=x"(r) : "x"(a), "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_vmulss(float a, float b) {
+    float r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("vmulss %2, %1, %0\n\tlfence"
+                             : "=x"(r) : "x"(a), "x"(b));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_vsqrtss(float a) {
+    if (a < 0) a = -a;
+    float r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("vsqrtss %1, %1, %0\n\tlfence"
+                             : "=x"(r) : "x"(a));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* ---- FMA ---- */
+
+static uint64_t bench_vfmadd231ss(float a, float b) {
+    float r = a, c = b * 0.5f;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        /* r = r + a*c */
+        __asm__ __volatile__("vfmadd231ss %2, %1, %0\n\tlfence"
+                             : "+x"(r) : "x"(a), "x"(c));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_vfmadd231sd(double a, double b) {
+    double r = a, c = b * 0.5;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("vfmadd231sd %2, %1, %0\n\tlfence"
+                             : "+x"(r) : "x"(a), "x"(c));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* ---- Suspect instructions NOT currently flagged (FN candidates) ---- */
+
+static uint64_t bench_bsf(uint64_t a, uint64_t b) {
+    (void)b;
+    if (a == 0) a = 1;            /* BSF undefined on 0 */
+    uint64_t r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("bsfq %1, %0\n\tlfence" : "=r"(r) : "r"(a) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_bsr(uint64_t a, uint64_t b) {
+    (void)b;
+    if (a == 0) a = 1;
+    uint64_t r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("bsrq %1, %0\n\tlfence" : "=r"(r) : "r"(a) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_lzcnt(uint64_t a, uint64_t b) {
+    (void)b;
+    uint64_t r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("lzcntq %1, %0\n\tlfence" : "=r"(r) : "r"(a) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_tzcnt(uint64_t a, uint64_t b) {
+    (void)b;
+    uint64_t r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("tzcntq %1, %0\n\tlfence" : "=r"(r) : "r"(a) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_popcnt(uint64_t a, uint64_t b) {
+    (void)b;
+    uint64_t r;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("popcntq %1, %0\n\tlfence" : "=r"(r) : "r"(a) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_cmov(uint64_t a, uint64_t b) {
+    /* CMOV's whole purpose is constant-time selection; verify. */
+    uint64_t r = 0;
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__(
+            "cmpq %2, %1\n\t"
+            "cmovbq %2, %0\n\t"
+            "lfence"
+            : "+r"(r) : "r"(a), "r"(b) : "cc");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_pclmulqdq(uint64_t a, uint64_t b) {
+    /* GF(2^64) carry-less multiply — used in AES-GCM, should be CT. */
+    typedef uint64_t v2u __attribute__((vector_size(16)));
+    v2u x = {a, a}, y = {b, b};
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("pclmulqdq $0, %1, %0\n\tlfence" : "+x"(x) : "x"(y));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+static uint64_t bench_aesenc(uint64_t a, uint64_t b) {
+    typedef uint64_t v2u __attribute__((vector_size(16)));
+    v2u x = {a, a}, k = {b, b};
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER; i++) {
+        __asm__ __volatile__("aesenc %1, %0\n\tlfence" : "+x"(x) : "x"(k));
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* REP MOVSB — variable-time by length. We test with FIXED length so this
+ * detects only data-dependent variation (which there should be ~none of). */
+static uint64_t bench_rep_movsb(uint64_t a, uint64_t b) {
+    static char buf_src[256], buf_dst[256];
+    /* Make timing depend on the data PATTERN by writing a/b into buf_src */
+    for (int i = 0; i < 256; i += 16) {
+        memcpy(buf_src + i, &a, 8);
+        memcpy(buf_src + i + 8, &b, 8);
+    }
+    serialize();
+    uint64_t t0 = rdtscp();
+    for (int i = 0; i < INNER / 32; i++) {  /* 32 bytes per inner iter */
+        const char *src = buf_src;
+        char *dst = buf_dst;
+        unsigned long n = 32;
+        __asm__ __volatile__(
+            "rep movsb\n\tlfence"
+            : "+S"(src), "+D"(dst), "+c"(n) :: "memory");
+    }
+    uint64_t t1 = rdtscp();
+    serialize();
+    return t1 - t0;
+}
+
+/* ---------- uniform dispatch ----------
+ * Every kernel below has signature (uint64_t a_bits, uint64_t b_bits)->cycles.
+ * Bit-pattern interpretation (float/double/int) happens inside each wrapper. */
+
+static float fbits_to_norm(uint32_t bits) {
+    /* Build a finite-non-denormal float in [1, 2) from bits. */
+    uint32_t u = 0x3f800000U | (bits & 0x007fffffU);
+    float f; memcpy(&f, &u, 4); return f;
+}
+static double dbits_to_norm(uint64_t bits) {
+    uint64_t u = 0x3ff0000000000000ULL | (bits & 0x000fffffffffffffULL);
+    double d; memcpy(&d, &u, 8); return d;
+}
+
+#define WRAP_FP_BIN_F(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { \
+        return bench_##name(fbits_to_norm((uint32_t)a), fbits_to_norm((uint32_t)b)); }
+#define WRAP_FP_BIN_D(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { \
+        return bench_##name(dbits_to_norm(a), dbits_to_norm(b)); }
+#define WRAP_FP_UN_F(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { \
+        (void)b; return bench_##name(fbits_to_norm((uint32_t)a)); }
+#define WRAP_FP_UN_D(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { \
+        (void)b; return bench_##name(dbits_to_norm(a)); }
+#define WRAP_DENORM(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { \
+        return bench_##name((uint32_t)a, (uint32_t)b); }
+#define WRAP_INT(name) \
+    static uint64_t w_##name(uint64_t a, uint64_t b) { return bench_##name(a, b); }
+
+WRAP_INT(divq)
+WRAP_INT(mulq)
+static uint64_t w_idivq(uint64_t a, uint64_t b) { return bench_idivq((int64_t)a, (int64_t)b); }
+WRAP_FP_BIN_F(divss)
+WRAP_FP_BIN_D(divsd)
+WRAP_FP_BIN_F(mulss)
+WRAP_FP_BIN_F(addss)
+WRAP_FP_UN_F(sqrtss)
+WRAP_DENORM(mulss_denorm)
+WRAP_DENORM(addss_denorm)
+WRAP_FP_BIN_D(mulsd)
+WRAP_FP_BIN_D(addsd)
+WRAP_FP_BIN_F(subss)
+WRAP_FP_BIN_D(subsd)
+WRAP_FP_UN_D(sqrtsd)
+WRAP_DENORM(mulsd_denorm)
+WRAP_DENORM(addsd_denorm)
+WRAP_FP_BIN_F(divps)
+WRAP_FP_BIN_D(divpd)
+WRAP_FP_UN_F(sqrtps)
+WRAP_FP_UN_D(sqrtpd)
+WRAP_FP_BIN_F(vdivss)
+WRAP_FP_BIN_D(vdivsd)
+WRAP_FP_BIN_F(vmulss)
+WRAP_FP_UN_F(vsqrtss)
+WRAP_FP_BIN_F(vfmadd231ss)
+WRAP_FP_BIN_D(vfmadd231sd)
+WRAP_INT(bsf)
+WRAP_INT(bsr)
+WRAP_INT(lzcnt)
+WRAP_INT(tzcnt)
+WRAP_INT(popcnt)
+WRAP_INT(cmov)
+WRAP_INT(pclmulqdq)
+WRAP_INT(aesenc)
+WRAP_INT(rep_movsb)
+
+typedef uint64_t (*kfn)(uint64_t, uint64_t);
+
+static const struct { const char *name; kfn fn; } OPS[] = {
+    /* Originally measured */
+    {"divq", w_divq}, {"mulq", w_mulq}, {"idivq", w_idivq},
+    {"divss", w_divss}, {"divsd", w_divsd},
+    {"mulss", w_mulss}, {"addss", w_addss}, {"sqrtss", w_sqrtss},
+    {"mulss_denorm", w_mulss_denorm}, {"addss_denorm", w_addss_denorm},
+    /* Newly added: missing FP scalar/double */
+    {"mulsd", w_mulsd}, {"addsd", w_addsd},
+    {"subss", w_subss}, {"subsd", w_subsd},
+    {"sqrtsd", w_sqrtsd},
+    {"mulsd_denorm", w_mulsd_denorm}, {"addsd_denorm", w_addsd_denorm},
+    /* Packed FP */
+    {"divps", w_divps}, {"divpd", w_divpd},
+    {"sqrtps", w_sqrtps}, {"sqrtpd", w_sqrtpd},
+    /* AVX scalar */
+    {"vdivss", w_vdivss}, {"vdivsd", w_vdivsd},
+    {"vmulss", w_vmulss}, {"vsqrtss", w_vsqrtss},
+    /* FMA */
+    {"vfmadd231ss", w_vfmadd231ss}, {"vfmadd231sd", w_vfmadd231sd},
+    /* False-negative candidates: NOT currently in the analyzer rule set */
+    {"bsf", w_bsf}, {"bsr", w_bsr},
+    {"lzcnt", w_lzcnt}, {"tzcnt", w_tzcnt},
+    {"popcnt", w_popcnt}, {"cmov", w_cmov},
+    {"pclmulqdq", w_pclmulqdq}, {"aesenc", w_aesenc},
+    {"rep_movsb", w_rep_movsb},
+    {0, 0}
 };
 
 static double run_one(int op_idx, int varying, double *cv_out) {
-    /* Generate NUM_PAIRS input pairs. If varying=0, all pairs are identical. */
-    uint64_t a_int[NUM_PAIRS], b_int[NUM_PAIRS];
-    float    a_f[NUM_PAIRS],   b_f[NUM_PAIRS];
-    double   a_d[NUM_PAIRS],   b_d[NUM_PAIRS];
-    uint32_t a_b[NUM_PAIRS],   b_b[NUM_PAIRS];
-
+    uint64_t a_in[NUM_PAIRS], b_in[NUM_PAIRS];
     uint64_t fix_a = prng(), fix_b = prng();
     for (int i = 0; i < NUM_PAIRS; i++) {
-        uint64_t ra = varying ? prng() : fix_a;
-        uint64_t rb = varying ? prng() : fix_b;
-        a_int[i] = ra; b_int[i] = rb ? rb : 1;
-        /* Floats: random in [1, 1e6] for normal, denormal handled separately. */
-        uint32_t ua = (uint32_t)ra, ub = (uint32_t)rb;
-        ua = 0x3f800000U | (ua & 0x007fffffU);  /* in [1,2) */
-        ub = 0x3f800000U | (ub & 0x007fffffU);
-        memcpy(&a_f[i], &ua, 4);  memcpy(&b_f[i], &ub, 4);
-        uint64_t da = 0x3ff0000000000000ULL | (ra & 0x000fffffffffffffULL);
-        uint64_t db = 0x3ff0000000000000ULL | (rb & 0x000fffffffffffffULL);
-        memcpy(&a_d[i], &da, 8); memcpy(&b_d[i], &db, 8);
-        a_b[i] = (uint32_t)ra; b_b[i] = (uint32_t)rb;
+        a_in[i] = varying ? prng() : fix_a;
+        uint64_t b = varying ? prng() : fix_b;
+        b_in[i] = b ? b : 1;   /* avoid divide-by-zero for INT div */
     }
 
+    kfn fn = OPS[op_idx].fn;
     double medians[NUM_PAIRS];
     for (int i = 0; i < NUM_PAIRS; i++) {
         uint64_t samples[REPS];
-        for (int r = 0; r < REPS; r++) {
-            uint64_t cyc;
-            if (OPS[op_idx].denorm) {
-                cyc = OPS[op_idx].denormfn(a_b[i], b_b[i]);
-            } else if (OPS[op_idx].is_int) {
-                cyc = OPS[op_idx].intfn(a_int[i], b_int[i]);
-            } else if (OPS[op_idx].is_unary) {
-                cyc = OPS[op_idx].fpfn1(a_f[i]);
-            } else if (OPS[op_idx].is_double) {
-                cyc = OPS[op_idx].fpfnd(a_d[i], b_d[i]);
-            } else {
-                cyc = OPS[op_idx].fpfn(a_f[i], b_f[i]);
-            }
-            samples[r] = cyc;
-        }
+        for (int r = 0; r < REPS; r++) samples[r] = fn(a_in[i], b_in[i]);
         medians[i] = (double)median_u64(samples, REPS) / (double)INNER;
     }
     *cv_out = cv(medians, NUM_PAIRS);
-    /* return mean cycles/op */
     double s = 0; for (int i = 0; i < NUM_PAIRS; i++) s += medians[i];
     return s / NUM_PAIRS;
 }
