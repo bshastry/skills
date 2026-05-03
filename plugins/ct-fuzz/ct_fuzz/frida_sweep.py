@@ -49,6 +49,12 @@ SWEEP = [
     ("ed25519-dalek sign — EdwardsPoint::mul_base",
      "ed25519_dalek_sign_vary_key",
      "_ZN16curve25519_dalek7edwards12EdwardsPoint8mul_base17hef7ab5d03a8c646dE"),
+    ("RustCrypto p256 ECDSA sign — Scalar::invert_unchecked (k^-1)",
+     "p256_ecdsa_sign_vary_key",
+     "_ZN4p25610arithmetic6scalar6Scalar16invert_unchecked17hdfe49a97a69cf317E"),
+    ("x25519-dalek DH — MontgomeryPoint::mul_clamped",
+     "x25519_dalek_dh_vary_key",
+     "_ZN16curve25519_dalek10montgomery15MontgomeryPoint11mul_clamped17hd9a8fdc2430f0135E"),
 ]
 REPEATS = 3
 SAMPLES = 5000

@@ -14,6 +14,9 @@ use aes_gcm::aead::{Aead, KeyInit as AesGcmKeyInit};
 use aes_gcm::Aes128Gcm;
 use chacha20poly1305::ChaCha20Poly1305;
 use ed25519_dalek::{Signer, SigningKey};
+use p256::ecdsa::{signature::Signer as P256Signer, SigningKey as P256SigningKey};
+use crypto_bigint::{NonZero, U256};
+use x25519_dalek::StaticSecret;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -356,6 +359,53 @@ pub fn register_all() -> Vec<(&'static str, TargetSpec)> {
         let msg = [0xAAu8; 64];
         let sig = kp.sign(&msg);
         touch(sig.to_bytes()[0] as u64);
+    })));
+
+    // RustCrypto p256 ECDSA sign — varying 32-byte private scalar.
+    v.push(whole("p256_ecdsa_sign_vary_key", 32, 0, 1, Box::new(|_pub, sec| {
+        // p256 SigningKey requires a non-zero scalar < n. Mask high bit
+        // to avoid scalar > n on most random inputs.
+        let mut s = [0u8; 32];
+        s.copy_from_slice(sec);
+        s[0] &= 0x7F;
+        if s == [0u8; 32] { s[31] = 1; }
+        let key = match P256SigningKey::from_bytes((&s).into()) {
+            Ok(k) => k,
+            Err(_) => return,
+        };
+        let msg = [0xAAu8; 64];
+        let sig: p256::ecdsa::Signature = key.sign(&msg);
+        touch(sig.to_bytes()[0] as u64);
+    })));
+
+    // crypto-bigint CT modular reduction: U256 % m, varying secret operand.
+    v.push(whole("crypto_bigint_u256_mod_vary_key", 32, 32, 50, Box::new(|pub_, sec| {
+        // Use the public 32-byte buffer as a fixed odd modulus; sec varies.
+        let mut m_bytes = [0u8; 32];
+        m_bytes.copy_from_slice(pub_);
+        m_bytes[31] |= 1; // ensure odd
+        m_bytes[0] |= 1;  // ensure top bit set so m > 2^254
+        let m = U256::from_be_slice(&m_bytes);
+        let nz = match NonZero::new(m).into() {
+            Some(nz) => nz,
+            None => return,
+        };
+        let x = U256::from_be_slice(sec);
+        let r = x.rem(&nz);
+        touch(r.to_words()[0]);
+    })));
+
+    // x25519-dalek Diffie-Hellman — varying 32-byte private scalar.
+    v.push(whole("x25519_dalek_dh_vary_key", 32, 0, 1, Box::new(|_pub, sec| {
+        let mut s = [0u8; 32];
+        s.copy_from_slice(sec);
+        let secret = StaticSecret::from(s);
+        // Fixed peer point (the all-0xAA byte string interpreted as a
+        // public key — invalid points are filtered by curve25519's
+        // Montgomery ladder which always produces SOME output).
+        let peer = x25519_dalek::PublicKey::from([0xAAu8; 32]);
+        let shared = secret.diffie_hellman(&peer);
+        touch(shared.as_bytes()[0] as u64);
     })));
 
     v

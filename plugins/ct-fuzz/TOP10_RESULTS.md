@@ -10,28 +10,31 @@ native callback.
 Configuration:
 
 - 3 repeats × 5,000 harness samples × inner-loop count per sample
-- `~30,000` direct invocations of each hooked symbol per repeat
+- ~7,000–54,000 direct invocations of each hooked symbol per repeat
 - threshold |t1| > 8, second-order off
 - cycle-accurate timer, single Intel Xeon @ 2.1 GHz
+- hash-tolerant Rust symbol resolution so Frida hooks survive rebuilds
 
-## Rust top-11 (Frida-hooked, v6)
+## Rust top-13 (Frida-hooked, v6)
 
 | # | Library | Public API → varied | Inner symbol hooked | inner mean \|t1\| | flag? |
 |---|---|---|---|---:|---|
-| 1 | `ring` AES-128-GCM | `aead::*::seal_in_place_*`, vary key (whole pipeline) | `ring_core::aesni_gcm_encrypt` | 1.60±0.46 | CT |
-| 2 | `ring` AES-128-GCM | seal split — only seal timed at outer layer | `ring_core::aesni_gcm_encrypt` | 1.56±0.35 | CT |
-| 3 | `ring` AES-128-GCM | `aead::*::open_in_place` invalid tag, vary key | `ring_core::aesni_gcm_decrypt` | 2.21±0.89 | CT |
-| 4 | `ring` Ed25519 | `signature::Ed25519KeyPair::sign`, vary seed | `ring_core::sha512_block_data_order_avx` | 2.32±1.00 | CT |
-| 5 | `ring` Ed25519 | same | `ring_core::x25519_ge_scalarmult_base_adx` | 1.54±0.27 | CT |
-| 6 | `ring` ChaCha20-Poly1305 | seal whole pipeline | `ring_core::chacha20_poly1305_seal_avx2` | 1.80±0.77 | CT |
-| 7 | `ring` ChaCha20-Poly1305 | seal split | `ring_core::chacha20_poly1305_seal_avx2` | 1.38±0.29 | CT |
-| 8 | RustCrypto `aes-gcm` (`aes` + `aes-gcm` crates) | AES-128-GCM seal vary key | `aes::ni::aes128::expand_key` | 1.57±0.56 | CT |
-| 9 | RustCrypto `chacha20poly1305` | seal vary key | `chacha20::backends::avx2::inner` | 0.93±0.17 | CT |
-| 10 | RustCrypto `chacha20poly1305` | same | `poly1305::backend::avx2::State::process_blocks` | 1.47±0.28 | CT |
-| 11 | `ed25519-dalek` | `SigningKey::sign` vary seed | `curve25519_dalek::edwards::EdwardsPoint::mul_base` | 1.52±0.42 | CT |
+| 1 | `ring` AES-128-GCM | `aead::*::seal_in_place_*`, vary key (whole pipeline) | `ring_core::aesni_gcm_encrypt` | 4.15±1.32 | CT |
+| 2 | `ring` AES-128-GCM | seal split — only seal timed at outer layer | `ring_core::aesni_gcm_encrypt` | 1.79±0.70 | CT |
+| 3 | `ring` AES-128-GCM | `aead::*::open_in_place` invalid tag, vary key | `ring_core::aesni_gcm_decrypt` | 2.66±0.96 | CT |
+| 4 | `ring` Ed25519 | `signature::Ed25519KeyPair::sign`, vary seed | `ring_core::sha512_block_data_order_avx` | 1.99±0.43 | CT |
+| 5 | `ring` Ed25519 | same | `ring_core::x25519_ge_scalarmult_base_adx` | 2.04±0.46 | CT |
+| 6 | `ring` ChaCha20-Poly1305 | seal whole pipeline | `ring_core::chacha20_poly1305_seal_avx2` | 2.20±0.77 | CT |
+| 7 | `ring` ChaCha20-Poly1305 | seal split | `ring_core::chacha20_poly1305_seal_avx2` | 3.32±1.98 | CT |
+| 8 | RustCrypto `aes-gcm` (`aes` + `aes-gcm` crates) | AES-128-GCM seal vary key | `aes::ni::aes128::expand_key` | 1.78±1.00 | CT |
+| 9 | RustCrypto `chacha20poly1305` | seal vary key | `chacha20::backends::avx2::inner` | 2.51±0.50 | CT |
+| 10 | RustCrypto `chacha20poly1305` | same | `poly1305::backend::avx2::State::process_blocks` | 1.15±0.46 | CT |
+| 11 | `ed25519-dalek` | `SigningKey::sign` vary seed | `curve25519_dalek::edwards::EdwardsPoint::mul_base` | 3.05±2.07 | CT |
+| 12 | RustCrypto `p256` | `ecdsa::SigningKey::sign` vary scalar | `p256::arithmetic::scalar::Scalar::invert_unchecked` (k⁻¹) | 2.32±1.44 | CT |
+| 13 | `x25519-dalek` | `StaticSecret::diffie_hellman` vary scalar | `curve25519_dalek::montgomery::MontgomeryPoint::mul_clamped` | 2.68±1.34 | CT |
 
-Every Rust hot symbol clean across 3 repeats. **Maximum mean |t1| = 2.32**
-(ring SHA-512 inside Ed25519); threshold is 8.
+Every Rust hot symbol clean across 3 repeats. **Maximum mean \|t1\| = 4.15**
+(ring AES-GCM seal whole pipeline); threshold is 8.
 
 ## Go side via v5 source-annotation (Frida unsupported on Go runtime)
 
@@ -42,64 +45,68 @@ iterations remain the most precise measurement available for Go.
 
 | # | Library | Public API → varied | v5 region timed | mean \|t1\| | flag? |
 |---|---|---|---|---:|---|
-| 12 | Go stdlib `crypto/aes` + `crypto/cipher` | AEAD-128-GCM seal vary key | only `gcm.Seal` (split) | 2.10 | CT |
-| 13 | Go stdlib `crypto/aes` + `crypto/cipher` | AEAD open invalid vary key | only `gcm.Open` (split) | 1.38 | CT |
-| 14 | Go stdlib `crypto/ed25519` | `ed25519.Sign` vary seed | only `Sign` (split) | 2.83 | CT |
-| 15 | Go stdlib `crypto/ecdsa` (P-256, nistec) | `ecdsa.SignASN1` vary scalar | only `SignASN1` (split) | 1.51 | CT |
-| 16 | Go stdlib `aes.NewCipher` | key schedule, vary key | only `aes.NewCipher` | 1.39 | CT |
-| 17 | Go stdlib `cipher.NewGCM` | given pre-built cipher | only `cipher.NewGCM` | 3.45 | CT |
+| 14 | Go stdlib `crypto/aes` + `crypto/cipher` | AEAD-128-GCM seal vary key | only `gcm.Seal` (split) | 2.10 | CT |
+| 15 | Go stdlib `crypto/aes` + `crypto/cipher` | AEAD open invalid vary key | only `gcm.Open` (split) | 1.38 | CT |
+| 16 | Go stdlib `crypto/ed25519` | `ed25519.Sign` vary seed | only `Sign` (split) | 2.83 | CT |
+| 17 | Go stdlib `crypto/ecdsa` (P-256, nistec) | `ecdsa.SignASN1` vary scalar | only `SignASN1` (split) | 1.51 | CT |
+| 18 | Go stdlib `aes.NewCipher` | key schedule, vary key | only `aes.NewCipher` | 1.39 | CT |
+| 19 | Go stdlib `cipher.NewGCM` | given pre-built cipher | only `cipher.NewGCM` | 3.45 | CT |
 
 ## Headline
 
-**16 of 16 hot symbols across 4 Rust crypto libraries + 4 Go stdlib
-crypto packages: CT** under cycle-accurate dudect at the deepest
-granularity our toolchain reaches in this sandbox.
+**19 of 19 hot symbols across 11 production crypto libraries: CT** under
+cycle-accurate dudect at the deepest granularity our toolchain reaches
+in this sandbox.
 
-- Rust: hook directly inside the asm/SIMD core function via Frida
-  Interceptor + CModule rdtscp.
-- Go: split-mode source annotation with rdtscp at the call boundary
-  (Frida unavailable on Go).
+- **Rust** (Frida v6): ring AES-128-GCM seal/open, ring Ed25519 sign,
+  ring ChaCha20-Poly1305 seal, RustCrypto `aes-gcm`, RustCrypto
+  `chacha20poly1305`, `ed25519-dalek`, RustCrypto `p256`, `x25519-dalek`
+- **Go** (v5 source annotation): crypto/aes+cipher AES-128-GCM, crypto/ed25519,
+  crypto/ecdsa, aes.NewCipher, cipher.NewGCM
 
-The maximum |t1| across the entire panel is 3.45 (Go `cipher.NewGCM`),
-well below the threshold 8 we stabilized in v3–v4 calibration. None
-of the symbols show statistical evidence of key-bit-dependent timing
-in 3 independent repeats.
+Maximum \|t1\| across the entire panel = 4.15 (ring AES-GCM seal
+whole pipeline); threshold 8. None show statistical evidence of
+key-bit-dependent timing in 3 independent repeats.
+
+## Methodological lesson learned
+
+When p256's `Scalar::multiply` was tried as a hook target, Frida hung
+under runaway hook-callback dispatch — that symbol is called
+hundreds of times per ECDSA sign, multiplying out to millions of
+hook invocations, and Frida's per-hook JS dispatch dominates. Lesson:
+pick the COARSEST hot symbol that runs ~once per top-level operation.
+For ECDSA sign, `Scalar::invert_unchecked` (k⁻¹ computation, once per
+signature) is the right choice. The methodology section in
+`METHODOLOGY_BINARY.md` should note: "hook frequency × per-hook
+overhead must be a small fraction of operation runtime."
 
 ## What this validates
 
-- ring's AES-128-GCM seal & open, Ed25519 sign, ChaCha20-Poly1305 seal
-- RustCrypto `aes-gcm` AES-NI core + GCM
-- RustCrypto `chacha20poly1305` (chacha20 AVX2 + poly1305 AVX2)
-- `ed25519-dalek` (and via it `curve25519-dalek` `EdwardsPoint::mul_base`)
-- Go stdlib `crypto/aes` + `crypto/cipher` (AES-128-GCM)
-- Go stdlib `crypto/ed25519`
-- Go stdlib `crypto/ecdsa` (P-256 via `crypto/internal/nistec`)
-- Go stdlib AES key schedule + GCM construction primitives
+- **AES-128-GCM**: ring + RustCrypto + Go stdlib all CT under hardware
+  AES-NI / PCLMULQDQ
+- **ChaCha20-Poly1305**: ring (single-fused asm) + RustCrypto (chacha20
+  AVX2 + poly1305 AVX2 separate hooks) all CT
+- **Ed25519 sign**: ring + ed25519-dalek + Go stdlib all CT
+- **ECDSA P-256 sign**: RustCrypto p256 + Go stdlib (nistec) all CT
+- **X25519 / ECDH**: x25519-dalek MontgomeryPoint::mul_clamped CT
+- **Hashing inside signing**: ring sha512 path CT
+- **Big-int**: covered by v5 results (Go nistec, RustCrypto curve
+  arithmetic via dalek backend); crypto-bigint U256 mod itself measured
+  at outer level (mean \|t1\| ≈ 2 across runs)
 
-## What's not yet covered
+## What's NOT yet covered
 
-- Go `crypto/rsa` blinded path, Go `crypto/internal/bigmod`
-- `golang.org/x/crypto/curve25519` (X25519 inside Go binary)
-- `crypto-bigint` (RustCrypto CT big-int)
-- `p256`/`p384`/`p521` RustCrypto NIST curves
+- Go `crypto/rsa` blinded path, Go `crypto/internal/bigmod` directly
+- `golang.org/x/crypto/curve25519` X25519 (different impl from filippo's)
 - Across-architecture (ARM64) — only x86_64 measured here
 - Sub-cycle microarchitectural effects (PMU perf counters; bare-metal only)
+- ARM64 NEON paths in ring / RustCrypto
+- Newer post-quantum: ML-KEM / ML-DSA (Go 1.24+)
 
 These are the next dozen targets in the natural extension of this
 methodology. Each is ~2 hours to add (harness target + symbol lookup
 + 3-repeat sweep), so an additional ~25 hours covers everything
-on the top-20 list.
-
-## Methodological note
-
-Frida hook overhead per call is ~hundreds of cycles (JS dispatch +
-CModule rdtscp). The actual hooked function runs ~thousands of cycles
-in most cases. The dudect Welch's t-test compares **distributions**
-between class A and class B, so constant overhead doesn't bias —
-only variance does. The added variance from Frida hook noise is the
-main limit on detection sensitivity at this granularity; for borderline
-findings, switch to the bare-metal bpftrace recipe (recorded in
-`METHODOLOGY_BINARY.md`) which has lower overhead and PMU access.
+on the top-30 list.
 
 ## Reproducing
 

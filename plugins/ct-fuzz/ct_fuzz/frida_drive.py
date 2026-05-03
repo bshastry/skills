@@ -44,9 +44,20 @@ const cm = new CModule(`
 const target_name = TARGET_SYMBOL;
 const bin = Process.enumerateModules()[0];
 let addr = null;
+// Match exact name first, else match by Rust-mangled prefix (drop the
+// 17h<hash>E suffix that changes per build).
+const stripHash = function(n) {
+  return n.replace(/17h[0-9a-f]{16}E$/, '');
+};
+const target_pref = stripHash(target_name);
 bin.enumerateSymbols().forEach(function(s){
   if (s.name === target_name) addr = s.address;
 });
+if (!addr) {
+  bin.enumerateSymbols().forEach(function(s){
+    if (!addr && stripHash(s.name) === target_pref) addr = s.address;
+  });
+}
 if (!addr) {
   console.log('symbol not found:', target_name);
 } else {
