@@ -16,7 +16,11 @@
     {"target": "aes128gcm_seal_vary_key", "label": "production", "rationale": "stdlib crypto/aes + crypto/cipher.NewGCM seal; varying 16-byte AES key. Real public AEAD API. Expected CT via AES-NI."},
     {"target": "aes128gcm_open_invalid_vary_key", "label": "production", "rationale": "stdlib AES-128-GCM open with random ciphertext+tag (will fail auth); varying key. Tests Bleichenbacher-class failure-path leakage."},
     {"target": "ed25519_sign_vary_key", "label": "production", "rationale": "stdlib crypto/ed25519.Sign; varying 32-byte private seed. Real public signature API. Expected CT (SHA-512 + edwards25519 scalar mult)."},
-    {"target": "ecdsa_p256_sign_vary_key", "label": "production", "rationale": "stdlib crypto/ecdsa.SignASN1 on P-256; varying 32-byte private scalar. Real public signature API. Modern Go uses constant-time nistec."}
+    {"target": "ecdsa_p256_sign_vary_key", "label": "production", "rationale": "stdlib crypto/ecdsa.SignASN1 on P-256; varying 32-byte private scalar. Real public signature API. Modern Go uses constant-time nistec."},
+    {"target": "aes128gcm_seal_vary_key_split", "label": "production", "rationale": "Same as aes128gcm_seal_vary_key but with prep (NewCipher+NewGCM) moved OUTSIDE the timing window — only gcm.Seal is timed."},
+    {"target": "aes128gcm_open_invalid_vary_key_split", "label": "production", "rationale": "Same as aes128gcm_open_invalid_vary_key but only gcm.Open is timed."},
+    {"target": "ed25519_sign_vary_key_split", "label": "production", "rationale": "Same as ed25519_sign_vary_key but only ed25519.Sign is timed (seed-expansion in prep)."},
+    {"target": "ecdsa_p256_sign_vary_key_split", "label": "production", "rationale": "Same as ecdsa_p256_sign_vary_key but only ecdsa.SignASN1 is timed (key construction in prep)."}
   ],
   "rust": [
     {"target": "subtle_ConstantTimeEq_32", "label": "ct", "rationale": "subtle crate, designed to be constant-time"},
@@ -30,6 +34,9 @@
     {"target": "ring_constant_time_verify", "label": "unknown", "rationale": "ring::constant_time::verify_slices_are_equal — production target"},
     {"target": "ring_aes128gcm_seal_vary_key", "label": "production", "rationale": "ring::aead::LessSafeKey::seal_in_place_append_tag with AES_128_GCM; varying 16-byte key. Real production AEAD API used by rustls."},
     {"target": "ring_aes128gcm_open_invalid_vary_key", "label": "production", "rationale": "ring::aead::LessSafeKey::open_in_place with bogus tag; varying key. Failure-path timing test."},
-    {"target": "ring_ed25519_sign_vary_key", "label": "production", "rationale": "ring::signature::Ed25519KeyPair::sign; varying 32-byte private seed. Production signature API."}
+    {"target": "ring_ed25519_sign_vary_key", "label": "production", "rationale": "ring::signature::Ed25519KeyPair::sign; varying 32-byte private seed. Production signature API."},
+    {"target": "ring_aes128gcm_seal_vary_key_split", "label": "production", "rationale": "Same as ring_aes128gcm_seal_vary_key but with UnboundKey::new + LessSafeKey::new in prep (untimed); only seal_in_place_separate_tag is timed."},
+    {"target": "ring_aes128gcm_open_invalid_vary_key_split", "label": "production", "rationale": "Same as ring_aes128gcm_open_invalid_vary_key but only open_in_place is timed."},
+    {"target": "ring_ed25519_sign_vary_key_split", "label": "production", "rationale": "Same as ring_ed25519_sign_vary_key but only kp.sign is timed (Ed25519KeyPair::from_seed_unchecked in prep)."}
   ]
 }

@@ -15,6 +15,7 @@ GO = str(ROOT / "ct-fuzz-go")
 RUST = str(ROOT / "ct-fuzz-rust")
 
 PROD = [
+    # Whole-pipeline (prep+measure inside timing window)
     ("go", GO, "aes128gcm_seal_vary_key"),
     ("go", GO, "aes128gcm_open_invalid_vary_key"),
     ("go", GO, "ed25519_sign_vary_key"),
@@ -22,6 +23,14 @@ PROD = [
     ("rust", RUST, "ring_aes128gcm_seal_vary_key"),
     ("rust", RUST, "ring_aes128gcm_open_invalid_vary_key"),
     ("rust", RUST, "ring_ed25519_sign_vary_key"),
+    # Split (prep outside timing window — only the actual op timed)
+    ("go", GO, "aes128gcm_seal_vary_key_split"),
+    ("go", GO, "aes128gcm_open_invalid_vary_key_split"),
+    ("go", GO, "ed25519_sign_vary_key_split"),
+    ("go", GO, "ecdsa_p256_sign_vary_key_split"),
+    ("rust", RUST, "ring_aes128gcm_seal_vary_key_split"),
+    ("rust", RUST, "ring_aes128gcm_open_invalid_vary_key_split"),
+    ("rust", RUST, "ring_ed25519_sign_vary_key_split"),
 ]
 
 SAMPLES = 60_000

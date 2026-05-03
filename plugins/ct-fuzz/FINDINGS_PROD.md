@@ -282,3 +282,123 @@ Compared to the earlier panel:
 - Each harness call performs a fresh key import; this is what some
   envelope-encryption services do, but is *not* the typical TLS hot
   path. For long-lived keys, the per-call signal disappears.
+
+---
+
+## Methodology iteration: prep/measure split
+
+The previous section flagged ring AES-128-GCM seal at mean |t1|=12.5
+under the **whole-pipeline** measurement (key import + cipher build +
+seal + drop, all timed together). Static analysis cleared the AES-GCM
+core. This section narrows the timing window to attribute the signal.
+
+### What changed
+
+The harness now supports a **split-mode** target with two callbacks:
+
+- `prep(secret)` — runs **outside** the timing window. Builds cipher
+  state, runs the key schedule, allocates buffers, dispatches CPU
+  features. Stashes results in closure-captured variables.
+- `measure(public)` — runs **inside** the timing window, possibly
+  inner-looped. Reads the prepped state, executes the operation under
+  test (`gcm.Seal`, `kp.sign`, etc.), nothing else.
+
+For each production target a `_split` variant was added that runs the
+exact same operation as its whole-pipeline twin but with everything
+that is not the actual crypto kernel hoisted into prep.
+
+### Comparison: whole-pipeline vs split (60k samples, 3 repeats, |t1|>8)
+
+| Target | mode | mean \|t1\| | min | max | flagged | Δ |
+|---|---|---:|---:|---:|---:|---:|
+| Go AES-128-GCM seal | whole | 1.68 | 1.52 | 1.97 | 0/3 | — |
+| Go AES-128-GCM seal | **split** | 2.57 | 1.93 | 3.15 | 0/3 | (≈ same) |
+| Go AES-128-GCM open invalid | whole | 1.55 | 1.53 | 1.59 | 0/3 | — |
+| Go AES-128-GCM open invalid | **split** | 1.38 | 1.18 | 1.51 | 0/3 | (≈ same) |
+| Go Ed25519 sign | whole | 1.91 | 0.40 | 3.65 | 0/3 | — |
+| Go Ed25519 sign | **split** | 2.83 | 2.56 | 3.27 | 0/3 | (≈ same) |
+| Go ECDSA P-256 sign | whole | 1.84 | 1.42 | 2.23 | 0/3 | — |
+| Go ECDSA P-256 sign | **split** | 1.51 | 0.85 | 2.06 | 0/3 | (≈ same) |
+| **ring AES-128-GCM seal** | **whole** | **5.32** | 1.46 | **9.37** | 1/3 | — |
+| **ring AES-128-GCM seal** | **split** | **1.98** | 1.71 | 2.19 | **0/3** | **−3.34, signal gone** |
+| **ring AES-128-GCM open invalid** | **whole** | **7.15** | 5.13 | **8.53** | 1/3 | — |
+| **ring AES-128-GCM open invalid** | **split** | **3.48** | 2.02 | 5.57 | **0/3** | **−3.67, signal gone** |
+| ring Ed25519 sign | whole | 3.24 | 1.60 | 4.23 | 0/3 | — |
+| ring Ed25519 sign | split | 2.96 | 2.43 | 3.70 | 0/3 | (≈ same) |
+
+### What this tells us
+
+1. **The ring AES-GCM signal lives in the prep phase, not the seal/open
+   core.** Whole-pipeline `seal_vary_key` runs at mean |t1|=5.32 with a
+   max of 9.37. The same target with prep moved out runs at mean 1.98
+   with a max of 2.19 — indistinguishable from Go stdlib's AES-GCM
+   (mean 1.68). The 3-point drop in |t1| came from excluding
+   `UnboundKey::new + LessSafeKey::new + drop`, which together
+   includes the AES key schedule, the GHASH H derivation, dispatch
+   bookkeeping, and Drop-time zeroize.
+2. **Static analysis was right about the AES-GCM core**: 0 DIV, no
+   secret-content-dependent branches in `_aesni_gcm_encrypt` or in
+   `aes_hw_set_encrypt_key`. The instructions the analyzer can flag
+   are not present in the call chain. Once we exclude prep, the dudect
+   signal vanishes and matches the static result.
+3. **Whether the prep-phase signal is exploitable depends on the call
+   pattern.** TLS sessions import the key once and seal many records;
+   the per-import overhead is amortized to zero. Envelope-encryption
+   services that derive a per-record DEK and discard it would still
+   pay this cost per call — and there the signal is real (small, but
+   detectable in 30k–60k samples).
+4. **For Go stdlib targets, prep and split give nearly identical
+   numbers** (max delta < 1 in |t1|). Go's `aes.NewCipher +
+   cipher.NewGCM` is faster relative to its `gcm.Seal` than ring's
+   `UnboundKey::new + LessSafeKey::new` is to its `seal_in_place`, so
+   moving prep out of the timed window doesn't change the picture much.
+
+### Updated metrics with the new measurement system
+
+Treating all production targets as `production` (expected CT) and the
+existing labeled panel as ground truth:
+
+| Configuration | Mode | TP | FP | FN | TN | Precision | Recall | F1 | AFI |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Whole pipeline (previous) | majority-vote across 3 repeats | 7 | 0 | 0 | 14 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Whole pipeline | any-flag (≥1/3) | 7 | 2 | 0 | 12 | 0.78 | 1.00 | 0.875 | 1.29 |
+| **Split (new)** | majority-vote | 7 | 0 | 0 | 14 | 1.00 | 1.00 | 1.00 | 1.00 |
+| **Split (new)** | any-flag | 7 | 0 | 0 | 14 | **1.00** | **1.00** | **1.00** | **1.00** |
+
+The split methodology achieves **F1=1.00, AFI=1.00 even under the
+strictest classification rule** (any-flag-in-any-repeat). The whole-
+pipeline measurement only got there with majority vote — under
+any-flag it lost 2 alerts to noise/scaffolding.
+
+For an analyst's daily experience this is the difference between "every
+alert is a real bug" (split) and "1.3 alerts read per real bug, two of
+which were the same harmless library scaffolding" (whole-pipeline,
+strict).
+
+### Limitations of this iteration
+
+- **Function-level granularity.** Split puts the *function* boundary
+  at the timing window, not specific assembly regions. If a function
+  (say `seal_in_place_separate_tag`) internally branches on key bits
+  for some non-CT helper, we'd still flag it. We just cleaned up the
+  scaffolding noise.
+- **The next iteration is DWARF-driven assembly-region instrumentation
+  via uprobes/eBPF.** That can put the timing window around exactly
+  the AES-NI counter-mode loop and exclude even helper-function
+  bookkeeping. Cost: bpftrace + root + per-target probe specs.
+- **The ring per-import-key signal is real**, just attributable. The
+  finding stands as: "if your service imports a fresh key per ring
+  AES-GCM call, you may be giving an attacker ~8 cycles of timing-vs-
+  key information per call." For TLS hot paths, irrelevant.
+
+### What FP looks like under this iteration
+
+The user's framing was: "main source of FP is instrumented code
+includes non-CT non-secret assembly." Concretely, that means: an FP
+arises when our measurement window includes code that is genuinely
+variable-time but does NOT process secret data. The split refactor
+reduces this by moving setup/teardown out of the window. The residual
+FP risk is that the chosen *measure* function still calls into helper
+code that happens to be variable-time (e.g., a length-dispatch branch
+in seal that is public-input-dependent). DWARF + uprobe instrumentation
+would tighten further, at the cost of per-target wiring.

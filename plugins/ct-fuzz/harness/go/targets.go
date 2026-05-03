@@ -235,6 +235,105 @@ func registerAll() {
 			}
 		})
 	}
+
+	// ---------- Production targets: SPLIT (prep untimed, measure timed) ----------
+	// The same operations as above, but with the per-call cipher/key construction
+	// moved OUT of the timed window. Compare to the whole-pipeline variants to
+	// see whether the dudect signal lives in the cipher core or in the scaffolding.
+
+	// AES-128-GCM seal, prep/measure split: only the gcm.Seal call is timed.
+	{
+		nonce := make([]byte, 12)
+		pt := bytes.Repeat([]byte{0xAA}, 64)
+		dst := make([]byte, 0, 80)
+		var gcmState cipher.AEAD
+		prep := func(sec []byte) {
+			block, err := aes.NewCipher(sec)
+			if err != nil {
+				return
+			}
+			gcmState, _ = cipher.NewGCM(block)
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			if gcmState == nil {
+				return
+			}
+			ct := gcmState.Seal(dst[:0], nonce, pt, nil)
+			sink += uint64(ct[0])
+		}
+		registerSplit("aes128gcm_seal_vary_key_split", 16, 0, 5, prep, measure)
+	}
+
+	// AES-128-GCM open with bogus tag, split. Only gcm.Open is timed.
+	{
+		nonce := make([]byte, 12)
+		bogusCt := bytes.Repeat([]byte{0xAA}, 80)
+		dst := make([]byte, 0, 64)
+		var gcmState cipher.AEAD
+		prep := func(sec []byte) {
+			block, err := aes.NewCipher(sec)
+			if err != nil {
+				return
+			}
+			gcmState, _ = cipher.NewGCM(block)
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			if gcmState == nil {
+				return
+			}
+			out, err := gcmState.Open(dst[:0], nonce, bogusCt, nil)
+			if err == nil && len(out) > 0 {
+				sink += uint64(out[0])
+			}
+		}
+		registerSplit("aes128gcm_open_invalid_vary_key_split", 16, 0, 5, prep, measure)
+	}
+
+	// Ed25519 sign, split. Key seed expansion (SHA-512) is in prep; only the
+	// scalar-mult-and-output sign step is timed.
+	{
+		msg := bytes.Repeat([]byte{0xAA}, 64)
+		var privKey ed25519.PrivateKey
+		prep := func(sec []byte) {
+			privKey = ed25519.NewKeyFromSeed(sec)
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			sig := ed25519.Sign(privKey, msg)
+			sink += uint64(sig[0])
+		}
+		registerSplit("ed25519_sign_vary_key_split", 32, 0, 1, prep, measure)
+	}
+
+	// ECDSA P-256 sign, split. Key derivation (ScalarBaseMult to get
+	// PublicKey.X/Y, big.Int.SetBytes) is in prep; only ecdsa.SignASN1 is timed.
+	{
+		hash := bytes.Repeat([]byte{0xAA}, 32)
+		var privKey *ecdsa.PrivateKey
+		prep := func(sec []byte) {
+			var d [32]byte
+			copy(d[:], sec)
+			d[0] &= 0x7F
+			if d == ([32]byte{}) {
+				d[31] = 1
+			}
+			x, y := elliptic.P256().ScalarBaseMult(d[:])
+			privKey = &ecdsa.PrivateKey{
+				PublicKey: ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y},
+				D:         new(big.Int).SetBytes(d[:]),
+			}
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			sig, err := ecdsa.SignASN1(rand.Reader, privKey, hash)
+			if err == nil && len(sig) > 0 {
+				sink += uint64(sig[0])
+			}
+		}
+		registerSplit("ecdsa_p256_sign_vary_key_split", 32, 0, 1, prep, measure)
+	}
 }
 
 // loadRSAKey returns a fresh 2048-bit RSA key generated at startup.

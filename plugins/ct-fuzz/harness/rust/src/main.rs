@@ -12,11 +12,47 @@ mod targets;
 
 pub type TargetFn = Box<dyn Fn(&[u8], &[u8])>;
 
+// Split-mode callbacks. prep is untimed (state stashed in closure-captured
+// vars); measure is the timed call. Use FnMut so prep can mutate cells.
+pub type PrepFn = Box<dyn FnMut(&[u8])>;
+pub type MeasureFn = Box<dyn FnMut(&[u8])>;
+
 pub struct TargetSpec {
-    pub func: TargetFn,
+    pub func: Option<TargetFn>,
+    pub prep: Option<PrepFn>,
+    pub measure: Option<MeasureFn>,
     pub secret_len: usize,
     pub public_len: usize,
     pub inner: usize,
+}
+
+impl TargetSpec {
+    pub fn whole(secret_len: usize, public_len: usize, inner: usize, func: TargetFn) -> Self {
+        TargetSpec {
+            func: Some(func),
+            prep: None,
+            measure: None,
+            secret_len,
+            public_len,
+            inner,
+        }
+    }
+    pub fn split(
+        secret_len: usize,
+        public_len: usize,
+        inner: usize,
+        prep: PrepFn,
+        measure: MeasureFn,
+    ) -> Self {
+        TargetSpec {
+            func: None,
+            prep: Some(prep),
+            measure: Some(measure),
+            secret_len,
+            public_len,
+            inner,
+        }
+    }
 }
 
 fn build_targets() -> Vec<(&'static str, TargetSpec)> {
@@ -25,13 +61,13 @@ fn build_targets() -> Vec<(&'static str, TargetSpec)> {
 
 fn run_one<W: Write>(
     out: &mut BufWriter<W>,
-    spec: &TargetSpec,
+    spec: &mut TargetSpec,
     n: usize,
 ) -> io::Result<()> {
     let mut rng = StdRng::from_entropy();
 
     // Public input: fixed 0xAA fill (matching Go harness convention).
-    let mut public_buf = vec![0xAAu8; spec.public_len];
+    let public_buf = vec![0xAAu8; spec.public_len];
     let mut secret_buf = vec![0u8; spec.secret_len];
     let fixed_a = vec![0xAAu8; spec.secret_len];
 
@@ -41,15 +77,20 @@ fn run_one<W: Write>(
     let mut random_pool = vec![0u8; n * spec.secret_len];
     rng.fill_bytes(&mut random_pool);
 
+    let split = spec.func.is_none();
+
     // Warmup.
     for i in 0..2048 {
         secret_buf.copy_from_slice(
             &random_pool[(i % n) * spec.secret_len..(i % n + 1) * spec.secret_len],
         );
-        (spec.func)(&public_buf, &secret_buf);
+        if split {
+            (spec.prep.as_mut().unwrap())(&secret_buf);
+            (spec.measure.as_mut().unwrap())(&public_buf);
+        } else {
+            (spec.func.as_ref().unwrap())(&public_buf, &secret_buf);
+        }
     }
-    // Public stays at 0xAA (no-op).
-    let _ = &mut public_buf;
 
     for i in 0..n {
         let class = if class_bytes[i] & 1 == 0 {
@@ -61,13 +102,26 @@ fn run_one<W: Write>(
             );
             b'B'
         };
-        let t0 = Instant::now();
-        for _ in 0..spec.inner {
-            (spec.func)(&public_buf, &secret_buf);
+        if split {
+            // Prep runs OUTSIDE the timing window — key schedule, dispatch,
+            // allocator. State stashed in closure-captured cells; measure reads it.
+            (spec.prep.as_mut().unwrap())(&secret_buf);
+            let t0 = Instant::now();
+            for _ in 0..spec.inner {
+                (spec.measure.as_mut().unwrap())(&public_buf);
+            }
+            let t1 = Instant::now();
+            let ns = t1.duration_since(t0).as_nanos() as u64;
+            writeln!(out, "{} {}", class as char, ns)?;
+        } else {
+            let t0 = Instant::now();
+            for _ in 0..spec.inner {
+                (spec.func.as_ref().unwrap())(&public_buf, &secret_buf);
+            }
+            let t1 = Instant::now();
+            let ns = t1.duration_since(t0).as_nanos() as u64;
+            writeln!(out, "{} {}", class as char, ns)?;
         }
-        let t1 = Instant::now();
-        let ns = t1.duration_since(t0).as_nanos() as u64;
-        writeln!(out, "{} {}", class as char, ns)?;
     }
     writeln!(out, "DONE")?;
     out.flush()?;
@@ -88,6 +142,7 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
+    let mut targets_map = targets_map;
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut out = BufWriter::new(stdout.lock());
@@ -103,7 +158,7 @@ fn main() -> io::Result<()> {
             eprintln!("ct-fuzz: bad command {:?}", line);
             continue;
         }
-        let name = parts[0];
+        let name = parts[0].to_string();
         let n: usize = match parts[1].parse() {
             Ok(n) => n,
             Err(_) => {
@@ -111,7 +166,7 @@ fn main() -> io::Result<()> {
                 continue;
             }
         };
-        let spec = match targets_map.iter().find(|(n, _)| *n == name) {
+        let spec = match targets_map.iter_mut().find(|(n, _)| *n == name) {
             Some((_, s)) => s,
             None => {
                 eprintln!("ct-fuzz: unknown target {:?}", name);

@@ -26,9 +26,24 @@ import (
 // allocate inside the timed region if at all avoidable.
 type targetFn func(public, secret []byte)
 
+// prepFn runs setup that depends on the secret but is NOT timed. Builds
+// per-target state (cipher, key handles, prepared big-int, …) and stashes
+// it in closure-captured variables that the matching measureFn reads.
+// This lets us separate "key import / dispatch / allocator" overhead
+// (untimed) from the actual cryptographic operation (timed).
+type prepFn func(secret []byte)
+
+// measureFn is the timed call. It reads whatever state prepFn stashed.
+type measureFn func(public []byte)
+
 // targetSpec describes a registered target.
 type targetSpec struct {
-	fn        targetFn
+	// Legacy single-callback path: fn is the full timed function.
+	fn targetFn
+	// Split-callback path: prep is untimed, measure is timed.
+	prep    prepFn
+	measure measureFn
+
 	publicLen int
 	secretLen int
 	// inner is the number of inner-loop calls per timed sample. For ns-fast
@@ -43,6 +58,19 @@ var targets = map[string]targetSpec{}
 
 func register(name string, secretLen, publicLen, inner int, fn targetFn) {
 	targets[name] = targetSpec{fn: fn, publicLen: publicLen, secretLen: secretLen, inner: inner}
+}
+
+// registerSplit registers a target with separate prep/measure callbacks.
+// prep runs once per sample BEFORE the timing window opens; measure is
+// what gets timed (and inner-looped).
+func registerSplit(name string, secretLen, publicLen, inner int, prep prepFn, measure measureFn) {
+	targets[name] = targetSpec{
+		prep:      prep,
+		measure:   measure,
+		publicLen: publicLen,
+		secretLen: secretLen,
+		inner:     inner,
+	}
 }
 
 func main() {
@@ -122,11 +150,18 @@ func runOne(out *bufio.Writer, name string, spec targetSpec, n int) {
 	randomPool := make([]byte, n*spec.secretLen)
 	_, _ = rand.Read(randomPool)
 
+	split := spec.prep != nil && spec.measure != nil
+
 	// Warmup: prime caches, branch predictor.
 	const warmup = 2048
 	for i := 0; i < warmup; i++ {
 		copy(secretBuf, randomPool[(i%n)*spec.secretLen:])
-		spec.fn(publicBuf, secretBuf)
+		if split {
+			spec.prep(secretBuf)
+			spec.measure(publicBuf)
+		} else {
+			spec.fn(publicBuf, secretBuf)
+		}
 	}
 
 	// Disable GC during measurement.
@@ -143,12 +178,25 @@ func runOne(out *bufio.Writer, name string, spec targetSpec, n int) {
 			class = 'B'
 			copy(secretBuf, randomPool[i*spec.secretLen:(i+1)*spec.secretLen])
 		}
-		t0 := time.Now()
-		for k := 0; k < inner; k++ {
-			spec.fn(publicBuf, secretBuf)
+		if split {
+			// Prep runs OUTSIDE the timing window — key schedule, cipher
+			// construction, dispatch, allocation. State is stashed in
+			// closure variables; measure reads it.
+			spec.prep(secretBuf)
+			t0 := time.Now()
+			for k := 0; k < inner; k++ {
+				spec.measure(publicBuf)
+			}
+			t1 := time.Now()
+			fmt.Fprintf(out, "%c %d\n", class, t1.Sub(t0).Nanoseconds())
+		} else {
+			t0 := time.Now()
+			for k := 0; k < inner; k++ {
+				spec.fn(publicBuf, secretBuf)
+			}
+			t1 := time.Now()
+			fmt.Fprintf(out, "%c %d\n", class, t1.Sub(t0).Nanoseconds())
 		}
-		t1 := time.Now()
-		fmt.Fprintf(out, "%c %d\n", class, t1.Sub(t0).Nanoseconds())
 	}
 	fmt.Fprintln(out, "DONE")
 	out.Flush()
