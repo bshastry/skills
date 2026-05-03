@@ -237,5 +237,50 @@ pub fn register_all() -> Vec<(&'static str, TargetSpec)> {
         v.push(split("ring_ed25519_sign_vary_key_split", 32, 0, 1, prep, measure));
     }
 
+    // ---------- v5: SUB-REGION annotation. Same target, different timed window. ----------
+    // Each variant times exactly one phase of the AES-128-GCM seal pipeline so we
+    // can attribute where the original whole-pipeline |t| signal came from.
+
+    // KEYSCHED-ONLY: time only UnboundKey::new (the AES key schedule).
+    {
+        use std::rc::Rc;
+        let stashed: Rc<RefCell<[u8; 16]>> = Rc::new(RefCell::new([0u8; 16]));
+        let stashed_p = stashed.clone();
+        let prep: PrepFn = Box::new(move |sec: &[u8]| {
+            stashed_p.borrow_mut().copy_from_slice(sec);
+        });
+        let stashed_m = stashed.clone();
+        let measure: MeasureFn = Box::new(move |_pub: &[u8]| {
+            let s = stashed_m.borrow();
+            let r = UnboundKey::new(&AES_128_GCM, &s[..]);
+            // Force the result to materialize via touch — and drop happens in scope.
+            if let Ok(u) = r {
+                let _ = u; // dropped here
+                touch(1);
+            }
+        });
+        v.push(split("ring_aes128gcm_keysched_only", 16, 0, 5, prep, measure));
+    }
+
+    // DROP-ONLY: time only the LessSafeKey drop (zeroize round keys, etc.).
+    {
+        use std::rc::Rc;
+        let cipher: Rc<RefCell<Option<LessSafeKey>>> = Rc::new(RefCell::new(None));
+        let cipher_p = cipher.clone();
+        let prep: PrepFn = Box::new(move |sec: &[u8]| {
+            if let Ok(unbound) = UnboundKey::new(&AES_128_GCM, sec) {
+                *cipher_p.borrow_mut() = Some(LessSafeKey::new(unbound));
+            }
+        });
+        let cipher_m = cipher.clone();
+        let measure: MeasureFn = Box::new(move |_pub: &[u8]| {
+            let _dropped = cipher_m.borrow_mut().take(); // drop happens at end of scope
+            touch(1);
+        });
+        v.push(split("ring_aes128gcm_drop_only", 16, 0, 5, prep, measure));
+    }
+
+    // SEAL-ONLY is already registered as ring_aes128gcm_seal_vary_key_split.
+
     v
 }

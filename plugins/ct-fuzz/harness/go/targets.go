@@ -334,6 +334,43 @@ func registerAll() {
 		}
 		registerSplit("ecdsa_p256_sign_vary_key_split", 32, 0, 1, prep, measure)
 	}
+
+	// ---------- v5: SUB-REGION annotation. Time exactly one phase. ----------
+
+	// AES-128-GCM key schedule only: aes.NewCipher(sec).
+	{
+		var stashed [16]byte
+		prep := func(sec []byte) { copy(stashed[:], sec) }
+		measure := func(pub []byte) {
+			_ = pub
+			block, err := aes.NewCipher(stashed[:])
+			if err == nil {
+				_ = block
+				sink++
+			}
+		}
+		registerSplit("aes128gcm_keysched_only", 16, 0, 50, prep, measure)
+	}
+
+	// AES-128-GCM NewGCM only: cipher.NewGCM(block) given a pre-built cipher.Block.
+	{
+		var blockState cipher.Block
+		prep := func(sec []byte) {
+			b, err := aes.NewCipher(sec)
+			if err == nil {
+				blockState = b
+			}
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			gcm, err := cipher.NewGCM(blockState)
+			if err == nil {
+				_ = gcm
+				sink++
+			}
+		}
+		registerSplit("aes128gcm_newgcm_only", 16, 0, 50, prep, measure)
+	}
 }
 
 // loadRSAKey returns a fresh 2048-bit RSA key generated at startup.

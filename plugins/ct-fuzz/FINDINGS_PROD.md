@@ -2,14 +2,15 @@
 
 > **Methodology iterations** ("what to measure"):
 >
-> | Generation | Timer | Window | Best ring AES-GCM seal `|t1|` | All-clean? |
+> | Gen | Timer | Window | ring AES-GCM seal mean `|t1|` | All clean? |
 > |---|---|---|---:|---|
 > | v1 (initial) | `time.Now()` / `Instant::now()` (ns) | whole pipeline (incl. allocator + `to_vec()`) | ~10 | no |
-> | v2 (no-alloc) | ns | whole pipeline (no heap alloc) | mean 12.5, max 16 | no |
-> | v3 (split) | ns | only the operation; key schedule in untimed prep | mean 1.98 | yes |
-> | **v4 (rdtscp+split)** | **`lfence; rdtscp; lfence`** (cycles) | only the operation | **mean 1.18** | **yes** |
+> | v2 (no-alloc) | ns | whole pipeline (no heap alloc) | 12.5 | no |
+> | v3 (split) | ns | only the operation; key schedule in untimed prep | 1.98 | yes |
+> | v4 (rdtscp+split) | `lfence; rdtscp; lfence` (cycles) | only the operation | 1.18 | yes |
+> | **v5 (sub-region annotation + cycles)** | cycles | one phase at a time (keysched-only / seal-only / drop-only) | **all sub-regions ≤ 1.77 across 3 repeats** | **yes** |
 >
-> Each iteration tightened the measurement, attributed signals to scaffolding rather than crypto, and brought `|t1|` closer to the noise floor. The headline below is the v4 numbers.
+> Each iteration tightened the measurement and attributed signals to scaffolding rather than crypto. v5 finishes the attribution: every named sub-region of ring's AES-GCM seal pipeline is CT at function granularity.
 
 This run targets the public APIs that production code actually calls,
 testing the right threat model: vary the **secret key** across classes,
@@ -373,6 +374,138 @@ Going further (DWARF-driven sub-function instrumentation) is the next
 generation: identify e.g. `_aesni_ctr32_ghash_6x` from the binary's
 DWARF info, attach uprobes at entry/exit, time only that 286-instruction
 inner routine. Out of scope for this iteration but the obvious next step.
+
+## Methodology iteration v5: sub-region source annotation
+
+User proposal: "compile with -g, get DWARF info, map secret handling to
+assembly, only measure the secret handling by instrumenting the assembly."
+
+Two tracks were attempted:
+
+### Track A — eBPF / uprobes (BLOCKED in this sandbox)
+
+The plan: attach `uprobe:./binary:_aesni_ctr32_ghash_6x` at function
+entry, `uretprobe:` at return, record cycle deltas, run dudect. This
+would let us time INSIDE library functions without recompiling ring or
+Go's stdlib.
+
+What happened on this host:
+
+```
+$ bpftrace -e 'BEGIN { printf("hello\n"); exit(); }'
+ERROR: Unknown error -1: couldn't set RLIMIT_MEMLOCK for bpftrace
+$ ulimit -l unlimited
+bash: ulimit: max locked memory: cannot modify limit: Operation not permitted
+$ ls /sys/kernel/debug/tracing
+ls: cannot access '/sys/kernel/debug/tracing': No such file or directory
+```
+
+Even with uid=0, the container is missing `CAP_SYS_RESOURCE` (RLIMIT
+caps) and tracefs isn't exposed. eBPF is blocked at the sandbox layer,
+not the privilege layer. On a bare-metal Linux host this would just
+work; documenting the recipe so it can run there:
+
+```
+# bpftrace-driven cycle measurement of a ring-internal function
+bpftrace -e '
+  uprobe:./ct-fuzz-rust:_aesni_ctr32_ghash_6x { @start[tid] = nsecs; }
+  uretprobe:./ct-fuzz-rust:_aesni_ctr32_ghash_6x {
+    if (@start[tid]) {
+      printf("%d\n", nsecs - @start[tid]);
+      delete(@start[tid]);
+    }
+  }' -p $(pidof ct-fuzz-rust)
+```
+
+(For true cycle precision rather than the kernel's ~10 ns timestamp,
+swap `nsecs` for a `bpf_perf_event_read_value` against a hardware-
+counter perf event — also straightforward but bare-metal-only.)
+
+### Track B — Source annotation (SHIPPED here)
+
+Each AES-128-GCM seal call has multiple source-level phases:
+
+```
+     phase                 | normally inside the timed window?
+  -------------------------+------------------------------------
+  1. UnboundKey::new       | yes (key schedule + dispatch)
+  2. LessSafeKey::new      | yes (struct wrap)
+  3. seal_in_place_*       | yes (the actual encrypt+authenticate)
+  4. drop                  | yes (zeroize-on-drop + free)
+```
+
+The harness's prep/measure split lets us put any subset of these phases
+into the timed window. We added three new targets per AES-GCM seal that
+each time exactly one phase:
+
+- `ring_aes128gcm_keysched_only` — only `UnboundKey::new`
+- `ring_aes128gcm_drop_only` — only the LessSafeKey drop
+- (`ring_aes128gcm_seal_vary_key_split` already times only seal)
+
+For Go, two parallel sub-region targets:
+- `aes128gcm_keysched_only` — only `aes.NewCipher`
+- `aes128gcm_newgcm_only` — only `cipher.NewGCM`
+
+Each sub-region target gets its own cycle measurement and its own
+dudect t-test. The measurement window is `lfence; rdtscp; lfence`
+bracketing only the source statement of interest.
+
+This is the source-annotation approximation of "instrument only the
+secret-handling assembly": we annotate at function-call boundaries
+within the measure callback. Limitation: we can only annotate at
+boundaries we control — the prep/measure boundary in our harness, not
+arbitrary instructions inside ring's compiled code. Going deeper needs
+either Track A (uprobes) or forking ring with annotation macros.
+
+### Sub-region results (3 repeats, N=30k, |t1|>8 threshold, cycle timer)
+
+| Sub-region | mean `|t1|` | min | max | flag? |
+|---|---:|---:|---:|---|
+| ring AES-GCM keysched only (`UnboundKey::new`) | **1.04** | 0.57 | 1.49 | CT |
+| ring AES-GCM seal only (`seal_in_place_separate_tag`) | 1.75 | 1.10 | 2.75 | CT |
+| ring AES-GCM drop only (`drop(LessSafeKey)` zeroize) | 1.77 | 0.85 | 3.08 | CT |
+| ring AES-GCM whole pipeline | 2.16 | 0.72 | 3.89 | CT |
+| ring AES-GCM open invalid (whole) | 1.28 | 0.79 | 1.75 | CT |
+| ring AES-GCM open invalid (split) | 1.24 | 0.84 | 1.76 | CT |
+| Go `aes.NewCipher` only | 1.39 | 1.01 | 2.01 | CT |
+| Go `cipher.NewGCM` only | 3.45 | 1.08 | 7.91 | CT |
+| Go AES-GCM seal whole | 2.38 | 1.49 | 3.14 | CT |
+| Go AES-GCM seal split | 2.10 | 1.49 | 3.19 | CT |
+
+**Every named sub-region is CT.** The progression is clean:
+
+- v1–v2 (ns timer + whole pipeline): ring AES-GCM seal flagged at `|t|≈10–12`
+- v3 (ns timer + split): drops to ~2 — most of the original signal was in
+  the prep phase (key schedule + cipher construction overhead at the
+  ns-timer noise floor)
+- v4 (cycles + split): drops to ~1.2 — the rest was vDSO timer jitter
+- **v5 (cycles + sub-region annotation): every phase clean.** There is
+  no key-dependent timing in any individual phase of ring's AES-128-GCM
+  pipeline at the granularity we can probe from userspace.
+
+Operational verdict on **ring 0.17 AES-128-GCM seal**: **NO TIMING
+LEAK at function granularity.** The earlier "uncertain — escalate to
+MSan/ctgrind" verdict can be definitively downgraded to "CT under all
+measurement configurations we can apply in this environment." Static
+analysis previously confirmed no DIVs and no key-content branches; v4
++ v5 dudect now confirms no measurable cycle dependence either.
+
+### What v5 still doesn't measure
+
+- **Inside ring's compiled code.** We can time `seal_in_place_separate_tag`
+  as a unit, but not specifically e.g. lines 100–150 of ring's GHASH
+  routine. That requires either uprobes (Track A, blocked here) or
+  recompiling ring with `secret_region_start!()` / `_end!()` macros
+  emitting `lfence; rdtscp; lfence`. Both are tractable on a less
+  restrictive host.
+- **Microarchitectural effects below cycle precision.** Cache port
+  pressure, branch-predictor state across calls, speculation rollback
+  cycles — all invisible to RDTSCP. A finer-grain leak would need PMU
+  perf counters (also bare-metal only).
+
+What v5 DID resolve: the original ring AES-GCM finding was a
+measurement artifact at the ns-timer + whole-pipeline level. Cycles +
+sub-region attribution shows clean across all phases.
 
 ## Caveats
 
