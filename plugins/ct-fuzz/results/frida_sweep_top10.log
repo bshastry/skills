@@ -1,0 +1,16 @@
+
+ #  label                                                   inner |t1|      outer |t1|  hits
+-----------------------------------------------------------------------------------------------
+ 1  ring AES-128-GCM seal (whole)                        1.60±0.46 (3/3)       1.27±0.55  27048
+ 2  ring AES-128-GCM seal (split)                        1.56±0.35 (3/3)       1.61±0.75  27048
+ 3  ring AES-128-GCM open invalid (whole)                2.21±0.89 (3/3)       1.41±0.66  27048
+ 4  ring Ed25519 sign — SHA-512 inner                    2.32±1.00 (3/3)       0.94±0.68  28192
+ 5  ring Ed25519 sign — basepoint scalar mult            1.54±0.27 (3/3)       1.98±0.35  14096
+ 6  ring ChaCha20-Poly1305 seal (whole)                  1.80±0.77 (3/3)       1.32±0.80  27048
+ 7  ring ChaCha20-Poly1305 seal (split)                  1.38±0.29 (3/3)       1.38±0.59  27048
+ 8  RustCrypto aes-gcm seal — AES-NI key expand          1.57±0.56 (3/3)       0.95±0.48  27048
+ 9  RustCrypto chacha20poly1305 seal — chacha20 AVX2 i   0.93±0.17 (3/3)       0.94±0.39  27048
+10  RustCrypto chacha20poly1305 seal — poly1305 AVX2 p   1.47±0.28 (3/3)       2.21±1.48  27048
+11  ed25519-dalek sign — EdwardsPoint::mul_base          1.52±0.42 (3/3)       0.65±0.29  14096
+
+saved /home/user/skills/plugins/ct-fuzz/results/frida_sweep.json

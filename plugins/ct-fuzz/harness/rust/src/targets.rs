@@ -8,8 +8,12 @@ use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use curve25519_dalek::scalar::Scalar;
 use num_bigint::BigUint;
 use num_traits::Zero;
-use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_128_GCM};
+use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_128_GCM, CHACHA20_POLY1305};
 use ring::signature::Ed25519KeyPair;
+use aes_gcm::aead::{Aead, KeyInit as AesGcmKeyInit};
+use aes_gcm::Aes128Gcm;
+use chacha20poly1305::ChaCha20Poly1305;
+use ed25519_dalek::{Signer, SigningKey};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -281,6 +285,78 @@ pub fn register_all() -> Vec<(&'static str, TargetSpec)> {
     }
 
     // SEAL-ONLY is already registered as ring_aes128gcm_seal_vary_key_split.
+
+    // ---------- v6 / top-10 additions: more production AEADs and signatures ----------
+
+    // ring ChaCha20-Poly1305 seal — varying 32-byte key.
+    v.push(whole("ring_chacha20poly1305_seal_vary_key", 32, 0, 5, Box::new(|_pub, sec| {
+        let unbound = match UnboundKey::new(&CHACHA20_POLY1305, sec) {
+            Ok(k) => k,
+            Err(_) => return,
+        };
+        let key = LessSafeKey::new(unbound);
+        let nonce = Nonce::assume_unique_for_key([0u8; 12]);
+        let mut buf = [0xAAu8; 64];
+        if key.seal_in_place_separate_tag(nonce, Aad::empty(), &mut buf).is_ok() {
+            touch(buf[0] as u64);
+        }
+    })));
+
+    // ring ChaCha20-Poly1305 seal split (only seal timed).
+    {
+        use std::rc::Rc;
+        let key: Rc<RefCell<Option<LessSafeKey>>> = Rc::new(RefCell::new(None));
+        let key_p = key.clone();
+        let prep: PrepFn = Box::new(move |sec: &[u8]| {
+            if let Ok(u) = UnboundKey::new(&CHACHA20_POLY1305, sec) {
+                *key_p.borrow_mut() = Some(LessSafeKey::new(u));
+            }
+        });
+        let key_m = key.clone();
+        let measure: MeasureFn = Box::new(move |_pub: &[u8]| {
+            let c = key_m.borrow();
+            if let Some(k) = c.as_ref() {
+                let nonce = Nonce::assume_unique_for_key([0u8; 12]);
+                let mut buf = [0xAAu8; 64];
+                if k.seal_in_place_separate_tag(nonce, Aad::empty(), &mut buf).is_ok() {
+                    touch(buf[0] as u64);
+                }
+            }
+        });
+        v.push(split("ring_chacha20poly1305_seal_vary_key_split", 32, 0, 5, prep, measure));
+    }
+
+    // RustCrypto aes-gcm AES-128-GCM seal — varying 16-byte key.
+    v.push(whole("rustcrypto_aes128gcm_seal_vary_key", 16, 0, 5, Box::new(|_pub, sec| {
+        let key = aes_gcm::Key::<Aes128Gcm>::from_slice(sec);
+        let cipher = Aes128Gcm::new(key);
+        let nonce = aes_gcm::Nonce::from_slice(&[0u8; 12]);
+        let pt = [0xAAu8; 64];
+        if let Ok(ct) = cipher.encrypt(nonce, pt.as_ref()) {
+            touch(ct[0] as u64);
+        }
+    })));
+
+    // RustCrypto chacha20poly1305 seal — varying 32-byte key.
+    v.push(whole("rustcrypto_chacha20poly1305_seal_vary_key", 32, 0, 5, Box::new(|_pub, sec| {
+        let key = chacha20poly1305::Key::from_slice(sec);
+        let cipher = ChaCha20Poly1305::new(key);
+        let nonce = chacha20poly1305::Nonce::from_slice(&[0u8; 12]);
+        let pt = [0xAAu8; 64];
+        if let Ok(ct) = cipher.encrypt(nonce, pt.as_ref()) {
+            touch(ct[0] as u64);
+        }
+    })));
+
+    // ed25519-dalek sign — varying 32-byte private seed.
+    v.push(whole("ed25519_dalek_sign_vary_key", 32, 0, 1, Box::new(|_pub, sec| {
+        let mut s = [0u8; 32];
+        s.copy_from_slice(sec);
+        let kp = SigningKey::from_bytes(&s);
+        let msg = [0xAAu8; 64];
+        let sig = kp.sign(&msg);
+        touch(sig.to_bytes()[0] as u64);
+    })));
 
     v
 }
