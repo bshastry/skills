@@ -1,0 +1,65 @@
+
+--- repeat 1/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    0.86
+  aes128gcm_open_invalid_vary_key             |t1|=    1.36
+  ed25519_sign_vary_key                       |t1|=    1.61
+  ecdsa_p256_sign_vary_key                    |t1|=    2.85
+  ring_aes128gcm_seal_vary_key                |t1|=    4.89
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    3.88
+  ring_ed25519_sign_vary_key                  |t1|=    1.03
+  aes128gcm_seal_vary_key_split               |t1|=    2.93
+  aes128gcm_open_invalid_vary_key_split       |t1|=    2.51
+  ed25519_sign_vary_key_split                 |t1|=    2.12
+  ecdsa_p256_sign_vary_key_split              |t1|=    4.50
+  ring_aes128gcm_seal_vary_key_split          |t1|=    1.80
+  ring_aes128gcm_open_invalid_vary_key_split  |t1|=    1.59
+  ring_ed25519_sign_vary_key_split            |t1|=    2.43
+
+--- repeat 2/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    3.09
+  aes128gcm_open_invalid_vary_key             |t1|=    2.68
+  ed25519_sign_vary_key                       |t1|=    2.59
+  ecdsa_p256_sign_vary_key                    |t1|=    1.38
+  ring_aes128gcm_seal_vary_key                |t1|=    5.75
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    4.46
+  ring_ed25519_sign_vary_key                  |t1|=    0.98
+  aes128gcm_seal_vary_key_split               |t1|=    1.11
+  aes128gcm_open_invalid_vary_key_split       |t1|=    2.55
+  ed25519_sign_vary_key_split                 |t1|=    4.11
+  ecdsa_p256_sign_vary_key_split              |t1|=    0.81
+  ring_aes128gcm_seal_vary_key_split          |t1|=    0.77
+  ring_aes128gcm_open_invalid_vary_key_split  |t1|=    1.90
+  ring_ed25519_sign_vary_key_split            |t1|=    2.00
+
+--- repeat 3/3 ---
+  aes128gcm_seal_vary_key                     |t1|=    0.91
+  aes128gcm_open_invalid_vary_key             |t1|=    2.31
+  ed25519_sign_vary_key                       |t1|=    2.09
+  ecdsa_p256_sign_vary_key                    |t1|=    2.49
+  ring_aes128gcm_seal_vary_key                |t1|=    7.65
+  ring_aes128gcm_open_invalid_vary_key        |t1|=    1.20
+  ring_ed25519_sign_vary_key                  |t1|=    4.14
+  aes128gcm_seal_vary_key_split               |t1|=    4.38
+  aes128gcm_open_invalid_vary_key_split       |t1|=    1.03
+  ed25519_sign_vary_key_split                 |t1|=    1.02
+  ecdsa_p256_sign_vary_key_split              |t1|=    2.19
+  ring_aes128gcm_seal_vary_key_split          |t1|=    0.96
+  ring_aes128gcm_open_invalid_vary_key_split  |t1|=    0.51
+  ring_ed25519_sign_vary_key_split            |t1|=    1.34
+
+=== production targets, 3 repeats, SO=off, threshold=8 ===
+target                                          mean       min       max  n>8
+aes128gcm_seal_vary_key                         1.62      0.86      3.09  0/3  CT  
+aes128gcm_open_invalid_vary_key                 2.12      1.36      2.68  0/3  CT  
+ed25519_sign_vary_key                           2.10      1.61      2.59  0/3  CT  
+ecdsa_p256_sign_vary_key                        2.24      1.38      2.85  0/3  CT  
+ring_aes128gcm_seal_vary_key                    6.10      4.89      7.65  0/3  CT  
+ring_aes128gcm_open_invalid_vary_key            3.18      1.20      4.46  0/3  CT  
+ring_ed25519_sign_vary_key                      2.05      0.98      4.14  0/3  CT  
+aes128gcm_seal_vary_key_split                   2.80      1.11      4.38  0/3  CT  
+aes128gcm_open_invalid_vary_key_split           2.03      1.03      2.55  0/3  CT  
+ed25519_sign_vary_key_split                     2.42      1.02      4.11  0/3  CT  
+ecdsa_p256_sign_vary_key_split                  2.50      0.81      4.50  0/3  CT  
+ring_aes128gcm_seal_vary_key_split              1.18      0.77      1.80  0/3  CT  
+ring_aes128gcm_open_invalid_vary_key_split      1.33      0.51      1.90  0/3  CT  
+ring_ed25519_sign_vary_key_split                1.92      1.34      2.43  0/3  CT  

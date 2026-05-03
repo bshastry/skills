@@ -19,7 +19,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // targetFn runs one operation and returns. The implementation must NOT
@@ -183,19 +182,19 @@ func runOne(out *bufio.Writer, name string, spec targetSpec, n int) {
 			// construction, dispatch, allocation. State is stashed in
 			// closure variables; measure reads it.
 			spec.prep(secretBuf)
-			t0 := time.Now()
+			t0 := rdtscp()
 			for k := 0; k < inner; k++ {
 				spec.measure(publicBuf)
 			}
-			t1 := time.Now()
-			fmt.Fprintf(out, "%c %d\n", class, t1.Sub(t0).Nanoseconds())
+			t1 := rdtscp()
+			fmt.Fprintf(out, "%c %d\n", class, t1-t0)
 		} else {
-			t0 := time.Now()
+			t0 := rdtscp()
 			for k := 0; k < inner; k++ {
 				spec.fn(publicBuf, secretBuf)
 			}
-			t1 := time.Now()
-			fmt.Fprintf(out, "%c %d\n", class, t1.Sub(t0).Nanoseconds())
+			t1 := rdtscp()
+			fmt.Fprintf(out, "%c %d\n", class, t1-t0)
 		}
 	}
 	fmt.Fprintln(out, "DONE")

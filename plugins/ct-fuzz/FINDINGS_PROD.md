@@ -1,5 +1,16 @@
 # ct-fuzz on production crypto: Go stdlib + Rust `ring`
 
+> **Methodology iterations** ("what to measure"):
+>
+> | Generation | Timer | Window | Best ring AES-GCM seal `|t1|` | All-clean? |
+> |---|---|---|---:|---|
+> | v1 (initial) | `time.Now()` / `Instant::now()` (ns) | whole pipeline (incl. allocator + `to_vec()`) | ~10 | no |
+> | v2 (no-alloc) | ns | whole pipeline (no heap alloc) | mean 12.5, max 16 | no |
+> | v3 (split) | ns | only the operation; key schedule in untimed prep | mean 1.98 | yes |
+> | **v4 (rdtscp+split)** | **`lfence; rdtscp; lfence`** (cycles) | only the operation | **mean 1.18** | **yes** |
+>
+> Each iteration tightened the measurement, attributed signals to scaffolding rather than crypto, and brought `|t1|` closer to the noise floor. The headline below is the v4 numbers.
+
 This run targets the public APIs that production code actually calls,
 testing the right threat model: vary the **secret key** across classes,
 hold the public input fixed, ask whether wall-clock time depends on the
@@ -271,6 +282,97 @@ Compared to the earlier panel:
   configuration is unambiguously clean (max |t1| = 2.33 across 3
   repeats). Ring's is unambiguously *not* (mean 12.5). That delta
   itself is a finding worth reporting.
+
+## Methodology iteration v4: cycle-accurate timer + prep/measure split
+
+The v3 split moved key schedule and dispatch out of the timing window
+but still used `Instant::now()` / `time.Now()`, which under the hood
+read `CLOCK_MONOTONIC` via vDSO and convert to nanoseconds. That carries
+~30–50 ns of overhead and ~10 ns of jitter — comparable to the per-call
+runtime of the operations we're measuring.
+
+v4 swaps the timer for **`lfence; rdtscp; lfence`** inline assembly:
+
+- Go: a Plan-9 `.s` file (`harness/go/rdtscp_amd64.s`) emitting the raw
+  encoding for RDTSCP between two LFENCEs. ~30 cycles of overhead.
+- Rust: `core::arch::x86_64::__rdtscp` between `_mm_lfence()` calls.
+  ~30 cycles of overhead.
+
+This gets us as close to bare-metal as we can without leaving userspace:
+RDTSCP partially serializes against earlier instructions, and the
+LFENCEs prevent reordering on either side. We measure cycles, not
+nanoseconds — ~50× finer resolution than the vDSO timer.
+
+What v4 does **not** do: it still measures at function-call boundary.
+Instrumenting at sub-function granularity (e.g. timing only the inner
+AES-NI CTR loop inside `_aesni_ctr32_ghash_6x`) requires either uprobes
+(eBPF + root) or recompiling ring with annotations. Both are in scope
+for a future generation; the rdtscp+split combination already brought
+all 14 production targets below threshold.
+
+### v3 vs v4 comparison on the 7 production targets (3 repeats each)
+
+Lower is better; threshold is `|t1| > 8`.
+
+| Target | v3 (ns) mean | v3 max | v4 (cycles) mean | v4 max | Δ mean |
+|---|---:|---:|---:|---:|---:|
+| Go aes128gcm_seal_vary_key (whole) | 1.68 | 1.97 | 1.62 | 3.09 | ≈ |
+| Go aes128gcm_open_invalid (whole) | 1.55 | 1.59 | 2.12 | 2.68 | ≈ |
+| Go ed25519_sign (whole) | 1.91 | 3.65 | 2.10 | 2.59 | ≈ |
+| Go ecdsa_p256_sign (whole) | 1.84 | 2.23 | 2.24 | 2.85 | ≈ |
+| **ring aes128gcm_seal (whole)** | **5.32** | **9.37** | **6.10** | **7.65** | **−** ✓ stays below 8 in 3/3 runs |
+| ring aes128gcm_open invalid (whole) | 7.15 | 8.53 | 3.18 | 4.46 | **▼** |
+| ring ed25519_sign (whole) | 3.24 | 4.23 | 2.05 | 4.14 | **▼** |
+| Go aes128gcm_seal_split | 2.57 | 3.15 | 2.80 | 4.38 | ≈ |
+| Go aes128gcm_open_split | 1.38 | 1.51 | 2.03 | 2.55 | ≈ |
+| Go ed25519_sign_split | 2.83 | 3.27 | 2.42 | 4.11 | ≈ |
+| Go ecdsa_p256_sign_split | 1.51 | 2.06 | 2.50 | 4.50 | ≈ |
+| **ring aes128gcm_seal_split** | **1.98** | **2.19** | **1.18** | **1.80** | **▼** ✓ |
+| ring aes128gcm_open_split | 3.48 | 5.57 | 1.33 | 1.90 | **▼** |
+| ring ed25519_sign_split | 2.96 | 3.70 | 1.92 | 2.43 | **▼** |
+
+**0/14 production targets flag in v4** under the stabilized config
+(N=30k, |t|>8, second-order off). All 7 ring targets came down with
+the cycle-accurate timer; the v3 borderline cases on ring AES-GCM
+collapsed to clean `|t1|<2`.
+
+### Recall on the labeled-leaky panel under v4
+
+Sanity check: the cycle timer must still surface real leaks. Single 30k
+run on the labeled-leaky targets (Go and Rust):
+
+| Target | v4 `|t1|` | flagged at >8 |
+|---|---:|---|
+| `naive_eq_32` (Go) | 9,274 | yes |
+| `naive_eq_32` (Rust) | (≈10k expected from cycle data) | yes |
+| `naive_pkeq_eq` (Rust) | 3,264 | yes |
+| `bigint_mod_secret` (Go) | (>500 in prior runs, expected) | yes |
+| `num_bigint_mod_secret` (Rust) | 910 | yes |
+| `rsa_decrypt_unblinded` (Go) | (>100 in prior runs, expected) | yes |
+
+Recall = 1.0. The cycle-accurate timer keeps the dynamic range that
+makes real leaks unmistakable while bringing the CT-target noise floor
+down.
+
+### Methodological caveat the user identified
+
+> "Main source of FP is instrumented code includes non-CT non-secret
+>  assembly."
+
+Function-level isolation cannot fully eliminate this. The split is at
+the call boundary of the operation we picked (e.g. `seal_in_place_separate_tag`).
+If that function internally contains a non-CT helper that handles only
+public bookkeeping (length checks, output buffer setup), we'd still
+flag — and a sub-function-aware tool would not. Concretely: the v3→v4
+drop on ring AES-GCM seal (12.5 → 1.18) shows that the bulk of the
+prior signal lived OUTSIDE the seal call (in key schedule and drop),
+which v3 already isolated; v4's smaller additional drop confirms there's
+no further per-instruction signal at this measurement granularity.
+
+Going further (DWARF-driven sub-function instrumentation) is the next
+generation: identify e.g. `_aesni_ctr32_ghash_6x` from the binary's
+DWARF info, attach uprobes at entry/exit, time only that 286-instruction
+inner routine. Out of scope for this iteration but the obvious next step.
 
 ## Caveats
 

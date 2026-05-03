@@ -4,11 +4,28 @@
 // per timed sample, then "DONE\n". Uses Instant::now() for timing.
 
 use std::io::{self, BufRead, BufWriter, Write};
-use std::time::Instant;
 
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 
 mod targets;
+
+/// Cycle-accurate timer: lfence; rdtscp; lfence. amd64 only.
+///
+/// rdtscp itself partially serializes against earlier instructions but
+/// not against later ones; the lfences give strict ordering. Overhead
+/// is ~30 cycles vs ~10 ns for Instant::now() — the difference between
+/// "measurable" and "drowned in timer noise" for ns-fast crypto ops.
+#[inline]
+fn rdtscp_lfence() -> u64 {
+    use std::arch::x86_64::{__rdtscp, _mm_lfence};
+    let mut aux: u32 = 0;
+    unsafe {
+        _mm_lfence();
+        let t = __rdtscp(&mut aux as *mut u32);
+        _mm_lfence();
+        t
+    }
+}
 
 pub type TargetFn = Box<dyn Fn(&[u8], &[u8])>;
 
@@ -106,21 +123,19 @@ fn run_one<W: Write>(
             // Prep runs OUTSIDE the timing window — key schedule, dispatch,
             // allocator. State stashed in closure-captured cells; measure reads it.
             (spec.prep.as_mut().unwrap())(&secret_buf);
-            let t0 = Instant::now();
+            let t0 = rdtscp_lfence();
             for _ in 0..spec.inner {
                 (spec.measure.as_mut().unwrap())(&public_buf);
             }
-            let t1 = Instant::now();
-            let ns = t1.duration_since(t0).as_nanos() as u64;
-            writeln!(out, "{} {}", class as char, ns)?;
+            let t1 = rdtscp_lfence();
+            writeln!(out, "{} {}", class as char, t1.wrapping_sub(t0))?;
         } else {
-            let t0 = Instant::now();
+            let t0 = rdtscp_lfence();
             for _ in 0..spec.inner {
                 (spec.func.as_ref().unwrap())(&public_buf, &secret_buf);
             }
-            let t1 = Instant::now();
-            let ns = t1.duration_since(t0).as_nanos() as u64;
-            writeln!(out, "{} {}", class as char, ns)?;
+            let t1 = rdtscp_lfence();
+            writeln!(out, "{} {}", class as char, t1.wrapping_sub(t0))?;
         }
     }
     writeln!(out, "DONE")?;
