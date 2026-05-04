@@ -13,6 +13,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/mlkem"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -333,6 +334,59 @@ func registerAll() {
 			}
 		}
 		registerSplit("ecdsa_p256_sign_vary_key_split", 32, 0, 1, prep, measure)
+	}
+
+	// golang.org/x/crypto/curve25519.X25519 — split version. Vary the scalar.
+	// X25519(scalar, point) — fixed peer point, vary the scalar. Production
+	// X25519 used by TLS 1.3 ECDHE.
+	{
+		peer := bytes.Repeat([]byte{0x09}, 32) // basepoint-like fixed peer
+		var scalar [32]byte
+		prep := func(sec []byte) {
+			copy(scalar[:], sec)
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			out, err := curve25519.X25519(scalar[:], peer)
+			if err == nil && len(out) > 0 {
+				sink += uint64(out[0])
+			}
+		}
+		registerSplit("curve25519_X25519_split", 32, 0, 1, prep, measure)
+	}
+
+	// Go stdlib ML-KEM-768 Decapsulate — varying the private key. Production
+	// post-quantum KEM. Threat model: attacker submits a fixed ciphertext to
+	// victim, victim Decapsulates with their private key; timing leak reveals
+	// key bits.
+	{
+		// Pre-build a valid encapsulation+ciphertext from a reference key so
+		// our ciphertext input is well-formed (otherwise decap exercises
+		// the implicit-rejection path which is also CT but a different test).
+		refKey, _ := mlkem.GenerateKey768()
+		_, ciphertext := refKey.EncapsulationKey().Encapsulate()
+		_ = ciphertext
+		var dk *mlkem.DecapsulationKey768
+		// 64-byte secret = ML-KEM seed (d || z, 32+32 bytes).
+		prep := func(sec []byte) {
+			var seed [64]byte
+			copy(seed[:], sec)
+			k, err := mlkem.NewDecapsulationKey768(seed[:])
+			if err == nil {
+				dk = k
+			}
+		}
+		measure := func(pub []byte) {
+			_ = pub
+			if dk == nil {
+				return
+			}
+			ss, err := dk.Decapsulate(ciphertext)
+			if err == nil && len(ss) > 0 {
+				sink += uint64(ss[0])
+			}
+		}
+		registerSplit("mlkem768_decapsulate_vary_key_split", 64, 0, 1, prep, measure)
 	}
 
 	// ---------- v5: SUB-REGION annotation. Time exactly one phase. ----------

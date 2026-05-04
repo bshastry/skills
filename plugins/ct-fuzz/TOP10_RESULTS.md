@@ -51,12 +51,21 @@ iterations remain the most precise measurement available for Go.
 | 17 | Go stdlib `crypto/ecdsa` (P-256, nistec) | `ecdsa.SignASN1` vary scalar | only `SignASN1` (split) | 1.51 | CT |
 | 18 | Go stdlib `aes.NewCipher` | key schedule, vary key | only `aes.NewCipher` | 1.39 | CT |
 | 19 | Go stdlib `cipher.NewGCM` | given pre-built cipher | only `cipher.NewGCM` | 3.45 | CT |
+| 20 | Go `golang.org/x/crypto/curve25519` X25519 | vary scalar (TLS 1.3 ECDHE) | only `curve25519.X25519` | 1.88 (max 2.43) | CT |
+| 21 | **Go stdlib `crypto/mlkem` ML-KEM-768 (post-quantum)** | `Decapsulate` vary key | only `Decapsulate` (split) | 4.04 (max 5.85) | CT |
 
 ## Headline
 
-**19 of 19 hot symbols across 11 production crypto libraries: CT** under
+**21 of 21 hot symbols across 12 production crypto libraries: CT** under
 cycle-accurate dudect at the deepest granularity our toolchain reaches
 in this sandbox.
+
+**Post-quantum coverage**: Go 1.25 stdlib `crypto/mlkem` ML-KEM-768
+Decapsulate (the operation an attacker queries against a victim's KEM)
+shows mean |t1|=4.04 across 3 repeats varying the 64-byte private key
+seed — clean. This validates the FIPS 203 implementation in the Go
+stdlib for timing side-channel resistance against private-key-dependent
+leakage at function-call granularity.
 
 - **Rust** (Frida v6): ring AES-128-GCM seal/open, ring Ed25519 sign,
   ring ChaCha20-Poly1305 seal, RustCrypto `aes-gcm`, RustCrypto
@@ -97,11 +106,11 @@ overhead must be a small fraction of operation runtime."
 ## What's NOT yet covered
 
 - Go `crypto/rsa` blinded path, Go `crypto/internal/bigmod` directly
-- `golang.org/x/crypto/curve25519` X25519 (different impl from filippo's)
+- ML-DSA (Dilithium) — not yet in Go 1.25 stdlib
+- RustCrypto `ml-kem` / `ml-dsa` — API in flux, deferred
 - Across-architecture (ARM64) — only x86_64 measured here
 - Sub-cycle microarchitectural effects (PMU perf counters; bare-metal only)
 - ARM64 NEON paths in ring / RustCrypto
-- Newer post-quantum: ML-KEM / ML-DSA (Go 1.24+)
 
 These are the next dozen targets in the natural extension of this
 methodology. Each is ~2 hours to add (harness target + symbol lookup

@@ -24,11 +24,13 @@ PROD = [
     # Sub-region annotation: time only one phase of the seal pipeline
     ("rust", RUST, "ring_aes128gcm_keysched_only"),
     ("rust", RUST, "ring_aes128gcm_drop_only"),
-    # Go side for comparison
+    # Go side
     ("go", GO, "aes128gcm_seal_vary_key"),
     ("go", GO, "aes128gcm_seal_vary_key_split"),
     ("go", GO, "aes128gcm_keysched_only"),
     ("go", GO, "aes128gcm_newgcm_only"),
+    ("go", GO, "curve25519_X25519_split"),
+    ("go", GO, "mlkem768_decapsulate_vary_key_split"),
 ]
 
 SAMPLES = 60_000
